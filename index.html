@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-family: Arial, sans-serif;
+    }
+    
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+      text-align: left;
+    }
+    
+    th {
+      background-color: #f2f2f2;
+    }
+    
+    .month-header {
+      background-color: #4CAF50;
+      color: white;
+      text-align: center;
+      padding: 10px;
+    }
+    
+    .event-cell {
+      min-height: 100px;
+    }
+    
+    .difficulty-easy {
+      background-color: #90EE90;
+    }
+    
+    .difficulty-medium {
+      background-color: #FFD700;
+    }
+    
+    .difficulty-hard {
+      background-color: #FFA07A;
+    }
+    
+    .unavailable {
+      background-color: #FF6B6B;
+    }
+    
+    .notes {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .calendar-button {
+      background-color: #4285f4;
+      color: white;
+      border: none;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .calendar-button:hover {
+      background-color: #357abd;
+    }
+  </style>
+  <script>
+    function addToCalendar(date, event) {
+      const encodedEvent = encodeURIComponent(event);
+      const encodedDate = encodeURIComponent(date);
+      const googleCalendarUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodedEvent}&dates=${encodedDate}`;
+      window.open(googleCalendarUrl, '_blank');
+    }
+  </script>
+</head>
+<body>
+  <table>
+    <tr>
+      <th>Mois</th>
+      <th>Semaine</th>
+      <th>Dates</th>
+      <th>Événement/Formation</th>
+      <th>Objectif Vidéo</th>
+      <th>Difficulté Montage</th>
+      <th>Date Tournage</th>
+      <th>Date Publication</th>
+      <th>Disponibilité</th>
+      <th>Actions</th>
+      <th>Notes</th>
+    </tr>
+    <!-- Exemple pour Janvier -->
+    <tr>
+      <td rowspan="4">Janvier</td>
+      <td>S1</td>
+      <td>1-7</td>
+      <td class="event-cell"></td>
+      <td></td>
+      <td class="difficulty-easy">Facile</td>
+      <td>
+        <input type="date" id="tournage_s1">
+        <button class="calendar-button" onclick="addToCalendar(document.getElementById('tournage_s1').value, 'Tournage YouTube')">
+          + Calendrier
+        </button>
+      </td>
+      <td>
+        <input type="date" id="publication_s1">
+        <button class="calendar-button" onclick="addToCalendar(document.getElementById('publication_s1').value, 'Publication YouTube')">
+          + Calendrier
+        </button>
+      </td>
+      <td class="unavailable">Non dispo 3-4</td>
+      <td></td>
+      <td class="notes"></td>
+    </tr>
+    <!-- Ajoutez les autres semaines similairement -->
+  </table>
+</body>
+</html>
