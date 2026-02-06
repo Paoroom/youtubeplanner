@@ -132,8 +132,11 @@
       height: 44px;
       margin-left: 120px;
       border-bottom: 1px solid #444;
-      position: relative;
+      position: sticky;
+      top: 28px;
       margin-bottom: 4px;
+      z-index: 19;
+      background: #1a1a1a;
     }
     .time-mark {
       position: absolute;
@@ -257,10 +260,13 @@
     .resize-handle:hover { background: rgba(255,255,255,0.15); border-radius: 4px; }
 
     .section-markers {
-      position: relative;
+      position: sticky;
+      top: 0;
       margin-left: 120px;
       height: 28px;
       margin-bottom: 4px;
+      z-index: 20;
+      background: #1a1a1a;
     }
     .section-marker {
       position: absolute;
@@ -591,68 +597,68 @@
 
     const TEMPLATES = {
       'custom': () => buildTemplate('Custom', 120, [
-        { name: 'Intro', startMeasure: 0, measures: 8, elements: [], energy: 3 },
-        { name: 'Section A', startMeasure: 8, measures: 8, elements: [], energy: 5 },
-        { name: 'Section B', startMeasure: 16, measures: 8, elements: [], energy: 6 },
-        { name: 'Section C', startMeasure: 24, measures: 8, elements: [], energy: 7 },
-        { name: 'Section D', startMeasure: 32, measures: 8, elements: [], energy: 8 },
-        { name: 'Section E', startMeasure: 40, measures: 8, elements: [], energy: 9 },
-        { name: 'Section F', startMeasure: 48, measures: 8, elements: [], energy: 7 },
-        { name: 'Section G', startMeasure: 56, measures: 8, elements: [], energy: 5 },
-        { name: 'Section H', startMeasure: 64, measures: 8, elements: [], energy: 8 },
-        { name: 'Section I', startMeasure: 72, measures: 8, elements: [], energy: 9 },
-        { name: 'Section J', startMeasure: 80, measures: 8, elements: [], energy: 6 },
-        { name: 'Outro', startMeasure: 88, measures: 8, elements: [], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: [], energy: 3 },
+        { name: 'Section A', startMeasure: 4, measures: 4, elements: [], energy: 5 },
+        { name: 'Section B', startMeasure: 8, measures: 8, elements: [], energy: 6 },
+        { name: 'Section C', startMeasure: 16, measures: 4, elements: [], energy: 7 },
+        { name: 'Section D', startMeasure: 20, measures: 8, elements: [], energy: 8 },
+        { name: 'Section E', startMeasure: 28, measures: 8, elements: [], energy: 9 },
+        { name: 'Section F', startMeasure: 36, measures: 4, elements: [], energy: 7 },
+        { name: 'Section G', startMeasure: 40, measures: 8, elements: [], energy: 5 },
+        { name: 'Section H', startMeasure: 48, measures: 8, elements: [], energy: 8 },
+        { name: 'Section I', startMeasure: 56, measures: 8, elements: [], energy: 9 },
+        { name: 'Section J', startMeasure: 64, measures: 8, elements: [], energy: 6 },
+        { name: 'Outro', startMeasure: 72, measures: 4, elements: [], energy: 3 },
       ]),
       'disco-pop': () => buildTemplate('Disco-Pop', 120, [
-        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
-        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
-        { name: 'Pré-refrain', startMeasure: 24, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Drums', 'FX'], energy: 7 },
-        { name: 'Refrain 1', startMeasure: 32, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
-        { name: 'Couplet 2', startMeasure: 48, measures: 16, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Pad'], energy: 5 },
-        { name: 'Pré-refrain 2', startMeasure: 64, measures: 8, elements: ['Kick', 'Bass', 'Drums', 'Hi-Hats', 'Chords', 'Vocals', 'FX'], energy: 7 },
-        { name: 'Refrain 2', startMeasure: 72, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
-        { name: 'Pont', startMeasure: 88, measures: 16, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
-        { name: 'Build', startMeasure: 104, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'FX', 'Vocals'], energy: 8 },
-        { name: 'Refrain final', startMeasure: 112, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals', 'Pad'], energy: 10 },
-        { name: 'Outro', startMeasure: 136, measures: 16, elements: ['Bass', 'Chords', 'Pad', 'Ambiance'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 12, measures: 4, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Drums', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 32, measures: 4, elements: ['Kick', 'Bass', 'Drums', 'Hi-Hats', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 36, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Pont', startMeasure: 44, measures: 8, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Build', startMeasure: 52, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'FX', 'Vocals'], energy: 8 },
+        { name: 'Refrain final', startMeasure: 56, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Bass', 'Chords', 'Pad', 'Ambiance'], energy: 3 },
       ]),
       'afro-house': () => buildTemplate('Afro House', 122, [
-        { name: 'Intro', startMeasure: 0, measures: 24, elements: ['Percs', 'Ambiance'], energy: 3 },
-        { name: 'Build 1', startMeasure: 24, measures: 12, elements: ['Percs', 'Bass', 'Hi-Hats', 'Ambiance'], energy: 5 },
-        { name: 'Drop 1', startMeasure: 36, measures: 48, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords'], energy: 8 },
-        { name: 'Breakdown', startMeasure: 84, measures: 20, elements: ['Mélodie', 'Pad', 'Percs', 'Vocals'], energy: 4 },
-        { name: 'Build 2', startMeasure: 104, measures: 12, elements: ['Percs', 'Bass', 'Drums', 'FX'], energy: 7 },
-        { name: 'Drop 2', startMeasure: 116, measures: 40, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords', 'Mélodie'], energy: 10 },
-        { name: 'Outro', startMeasure: 156, measures: 24, elements: ['Percs', 'Ambiance', 'Pad'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Percs', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 8, measures: 8, elements: ['Percs', 'Bass', 'Hi-Hats', 'Ambiance'], energy: 5 },
+        { name: 'Drop 1', startMeasure: 16, measures: 16, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords'], energy: 8 },
+        { name: 'Breakdown', startMeasure: 32, measures: 8, elements: ['Mélodie', 'Pad', 'Percs', 'Vocals'], energy: 4 },
+        { name: 'Build 2', startMeasure: 40, measures: 8, elements: ['Percs', 'Bass', 'Drums', 'FX'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 48, measures: 16, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords', 'Mélodie'], energy: 10 },
+        { name: 'Outro', startMeasure: 64, measures: 8, elements: ['Percs', 'Ambiance', 'Pad'], energy: 3 },
       ]),
       'tech-house': () => buildTemplate('Tech House', 128, [
-        { name: 'Intro', startMeasure: 0, measures: 32, elements: ['Kick', 'Hi-Hats', 'FX'], energy: 4 },
-        { name: 'Build', startMeasure: 32, measures: 16, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX'], energy: 6 },
-        { name: 'Drop 1', startMeasure: 48, measures: 32, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 9 },
-        { name: 'Break', startMeasure: 80, measures: 20, elements: ['Pad', 'FX', 'Vocals'], energy: 3 },
-        { name: 'Build 2', startMeasure: 100, measures: 8, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX', 'Drums'], energy: 7 },
-        { name: 'Drop 2', startMeasure: 108, measures: 32, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 10 },
-        { name: 'Outro', startMeasure: 140, measures: 20, elements: ['Kick', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 16, elements: ['Kick', 'Hi-Hats', 'FX'], energy: 4 },
+        { name: 'Build', startMeasure: 16, measures: 8, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 24, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Break', startMeasure: 40, measures: 8, elements: ['Pad', 'FX', 'Vocals'], energy: 3 },
+        { name: 'Build 2', startMeasure: 48, measures: 4, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX', 'Drums'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 52, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Kick', 'Hi-Hats', 'Ambiance'], energy: 3 },
       ]),
       'lofi-hiphop': () => buildTemplate('Lo-fi Hip-Hop', 85, [
-        { name: 'Intro', startMeasure: 0, measures: 12, elements: ['Ambiance', 'FX'], energy: 2 },
-        { name: 'Loop A', startMeasure: 12, measures: 24, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance'], energy: 5 },
-        { name: 'Variation', startMeasure: 36, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Pad', 'Bass'], energy: 4 },
-        { name: 'Loop B', startMeasure: 48, measures: 24, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance', 'Vocals'], energy: 6 },
-        { name: 'Bridge', startMeasure: 72, measures: 8, elements: ['Chords', 'Ambiance', 'FX'], energy: 3 },
-        { name: "Loop A'", startMeasure: 80, measures: 20, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass'], energy: 5 },
-        { name: 'Outro', startMeasure: 100, measures: 12, elements: ['Chords', 'Ambiance'], energy: 2 },
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Ambiance', 'FX'], energy: 2 },
+        { name: 'Loop A', startMeasure: 4, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance'], energy: 5 },
+        { name: 'Variation', startMeasure: 16, measures: 8, elements: ['Drums', 'Hi-Hats', 'Chords', 'Pad', 'Bass'], energy: 4 },
+        { name: 'Loop B', startMeasure: 24, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance', 'Vocals'], energy: 6 },
+        { name: 'Bridge', startMeasure: 36, measures: 4, elements: ['Chords', 'Ambiance', 'FX'], energy: 3 },
+        { name: "Loop A'", startMeasure: 40, measures: 8, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass'], energy: 5 },
+        { name: 'Outro', startMeasure: 48, measures: 4, elements: ['Chords', 'Ambiance'], energy: 2 },
       ]),
       'trap': () => buildTemplate('Trap', 150, [
-        { name: 'Intro', startMeasure: 0, measures: 12, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
-        { name: 'Couplet 1', startMeasure: 12, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 5 },
-        { name: 'Pré-refrain', startMeasure: 28, measures: 6, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'FX', 'Vocals'], energy: 7 },
-        { name: 'Refrain', startMeasure: 34, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals'], energy: 9 },
-        { name: 'Couplet 2', startMeasure: 46, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Pad'], energy: 5 },
-        { name: 'Bridge', startMeasure: 62, measures: 8, elements: ['Sub', 'Pad', 'Vocals'], energy: 4 },
-        { name: 'Refrain 2', startMeasure: 70, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals', 'FX'], energy: 10 },
-        { name: 'Outro', startMeasure: 86, measures: 12, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 24, measures: 4, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'FX', 'Vocals'], energy: 7 },
+        { name: 'Refrain', startMeasure: 28, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 40, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Bridge', startMeasure: 56, measures: 8, elements: ['Sub', 'Pad', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 64, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals', 'FX'], energy: 10 },
+        { name: 'Outro', startMeasure: 80, measures: 8, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
       ]),
       'drill': () => buildTemplate('Drill', 142, [
         { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Ambiance', 'Sub', 'FX'], energy: 3 },
@@ -661,37 +667,37 @@
         { name: 'Couplet 2', startMeasure: 32, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Mélodie'], energy: 6 },
         { name: 'Pont', startMeasure: 48, measures: 8, elements: ['Sub', 'Vocals', 'Pad'], energy: 4 },
         { name: 'Refrain 2', startMeasure: 56, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Chords', 'FX'], energy: 9 },
-        { name: 'Outro', startMeasure: 68, measures: 6, elements: ['Sub', 'Ambiance'], energy: 2 },
+        { name: 'Outro', startMeasure: 68, measures: 4, elements: ['Sub', 'Ambiance'], energy: 2 },
       ]),
       'boom-bap': () => buildTemplate('Boom Bap', 90, [
-        { name: 'Intro', startMeasure: 0, measures: 6, elements: ['Chords', 'Drums', 'Ambiance'], energy: 3 },
-        { name: 'Couplet 1', startMeasure: 6, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
-        { name: 'Refrain', startMeasure: 22, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 8 },
-        { name: 'Couplet 2', startMeasure: 30, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
-        { name: 'Pont', startMeasure: 46, measures: 8, elements: ['Chords', 'Bass', 'Vocals'], energy: 4 },
-        { name: 'Refrain 2', startMeasure: 54, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 9 },
-        { name: 'Outro', startMeasure: 62, measures: 6, elements: ['Chords', 'Drums', 'Ambiance'], energy: 2 },
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Chords', 'Drums', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Refrain', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 8 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Pont', startMeasure: 36, measures: 4, elements: ['Chords', 'Bass', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 40, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Outro', startMeasure: 48, measures: 4, elements: ['Chords', 'Drums', 'Ambiance'], energy: 2 },
       ]),
       'pop-radio': () => buildTemplate('Pop Radio', 120, [
-        { name: 'Intro', startMeasure: 0, measures: 6, elements: ['Chords', 'Vocals', 'Pad'], energy: 3 },
-        { name: 'Couplet 1', startMeasure: 6, measures: 12, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals'], energy: 5 },
-        { name: 'Pré-refrain', startMeasure: 18, measures: 6, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
-        { name: 'Refrain 1', startMeasure: 24, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
-        { name: 'Couplet 2', startMeasure: 36, measures: 12, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'Hi-Hats'], energy: 5 },
-        { name: 'Pré-refrain 2', startMeasure: 48, measures: 6, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
-        { name: 'Refrain 2', startMeasure: 54, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
-        { name: 'Pont', startMeasure: 66, measures: 12, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
-        { name: 'Refrain 3', startMeasure: 78, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead', 'Pad'], energy: 10 },
-        { name: 'Outro', startMeasure: 90, measures: 6, elements: ['Chords', 'Pad', 'Vocals'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Chords', 'Vocals', 'Pad'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 12, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'Hi-Hats'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 32, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 36, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Pont', startMeasure: 44, measures: 8, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Refrain 3', startMeasure: 52, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 64, measures: 4, elements: ['Chords', 'Pad', 'Vocals'], energy: 3 },
       ]),
       'future-bass': () => buildTemplate('Future Bass', 135, [
-        { name: 'Intro', startMeasure: 0, measures: 16, elements: ['Pad', 'Vocals', 'Ambiance'], energy: 3 },
-        { name: 'Build 1', startMeasure: 16, measures: 12, elements: ['Pad', 'Vocals', 'Drums', 'FX', 'Chords'], energy: 6 },
-        { name: 'Drop 1', startMeasure: 28, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals'], energy: 9 },
-        { name: 'Breakdown', startMeasure: 52, measures: 20, elements: ['Vocals', 'Chords', 'Pad', 'Ambiance'], energy: 4 },
-        { name: 'Build 2', startMeasure: 72, measures: 12, elements: ['Pad', 'Drums', 'FX', 'Chords', 'Vocals', 'Bass'], energy: 7 },
-        { name: 'Drop 2', startMeasure: 84, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals', 'Arpège'], energy: 10 },
-        { name: 'Outro', startMeasure: 108, measures: 16, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Pad', 'Vocals', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 8, measures: 8, elements: ['Pad', 'Vocals', 'Drums', 'FX', 'Chords'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 16, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Breakdown', startMeasure: 32, measures: 12, elements: ['Vocals', 'Chords', 'Pad', 'Ambiance'], energy: 4 },
+        { name: 'Build 2', startMeasure: 44, measures: 8, elements: ['Pad', 'Drums', 'FX', 'Chords', 'Vocals', 'Bass'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 52, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals', 'Arpège'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
       ]),
     };
 
@@ -1268,7 +1274,7 @@
                         {secondsToTimeStr(t)}
                       </span>
                       <span className="time-mark-measures" style={{ left: t * pxPerSecond }}>
-                        {mes} mes
+                        {mes}
                       </span>
                       <span className="time-tick" style={{ left: t * pxPerSecond, height: 12 }}></span>
                     </React.Fragment>
