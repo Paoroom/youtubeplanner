@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackMap - MAO Maker</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #1a1a1a;
+      color: #ffffff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: #2a2a2a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00D9CE; }
+
+    #app { min-height: 100vh; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: #222;
+      border-bottom: 1px solid #333;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00D9CE, #E91E8C);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .header-controls { display: flex; align-items: center; gap: 12px; }
+
+    .select-styled {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .select-styled:hover, .select-styled:focus {
+      border-color: #00D9CE;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .input-styled {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 14px;
+      width: 90px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .input-styled:hover, .input-styled:focus {
+      border-color: #00D9CE;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .palette-section {
+      padding: 16px 24px;
+      background: #222;
+      border-bottom: 1px solid #333;
+    }
+    .palette-title { font-size: 12px; color: #9ca3af; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
+    .palette-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .palette-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      cursor: grab;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .palette-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    .palette-item:active { cursor: grabbing; }
+    .palette-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .timeline-container {
+      padding: 20px 24px;
+      overflow-x: auto;
+      position: relative;
+    }
+    .timeline-wrapper {
+      position: relative;
+      min-height: 400px;
+    }
+
+    .time-ruler {
+      display: flex;
+      align-items: flex-end;
+      height: 36px;
+      margin-left: 120px;
+      border-bottom: 1px solid #444;
+      position: relative;
+      margin-bottom: 4px;
+    }
+    .time-mark {
+      position: absolute;
+      font-size: 11px;
+      color: #888;
+      transform: translateX(-50%);
+      bottom: 4px;
+    }
+    .time-tick {
+      position: absolute;
+      width: 1px;
+      background: #444;
+      bottom: 0;
+    }
+
+    .tracks-area {
+      position: relative;
+    }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .track-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #e0e0e0;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .track-label-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .track-label-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-lane {
+      flex: 1;
+      position: relative;
+      height: 44px;
+    }
+
+    .grid-lines {
+      position: absolute;
+      top: 0;
+      left: 120px;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .grid-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #2a2a2a;
+    }
+    .grid-line.major { background: #333; }
+
+    .block {
+      position: absolute;
+      height: 34px;
+      top: 5px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: grab;
+      transition: box-shadow 0.15s;
+      z-index: 3;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      user-select: none;
+      min-width: 20px;
+    }
+    .block:hover {
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+    .block .block-label {
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 5;
+    }
+    .resize-handle.left { left: 0; }
+    .resize-handle.right { right: 0; }
+    .resize-handle:hover { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+    .section-markers {
+      position: relative;
+      margin-left: 120px;
+      height: 28px;
+      margin-bottom: 4px;
+    }
+    .section-marker {
+      position: absolute;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0, 217, 206, 0.12);
+      color: #00D9CE;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding: 0 6px;
+    }
+
+    .energy-curve-container {
+      position: relative;
+      margin-left: 120px;
+      height: 80px;
+      margin-top: 8px;
+      border-top: 1px solid #333;
+      padding-top: 4px;
+    }
+    .energy-label {
+      position: absolute;
+      left: -110px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #9ca3af;
+      font-weight: 600;
+    }
+    .energy-canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .energy-point {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #00D9CE;
+      border: 2px solid #fff;
+      cursor: grab;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      transition: box-shadow 0.15s;
+    }
+    .energy-point:hover {
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.6);
+    }
+    .energy-tooltip {
+      position: absolute;
+      background: #333;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      pointer-events: none;
+      transform: translate(-50%, -130%);
+      white-space: nowrap;
+      z-index: 20;
+    }
+
+    .footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: #222;
+      border-top: 1px solid #333;
+      position: sticky;
+      bottom: 0;
+    }
+    .footer-info { font-size: 13px; color: #9ca3af; }
+    .footer-actions { display: flex; gap: 10px; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00D9CE, #00b3a9);
+      color: #000;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 16px rgba(0, 217, 206, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+    }
+    .btn-secondary:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.15);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #E91E8C, #c4177a);
+      color: #fff;
+    }
+    .btn-accent:hover {
+      box-shadow: 0 0 16px rgba(233, 30, 140, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .drop-zone-highlight {
+      background: rgba(0, 217, 206, 0.08);
+      border: 2px dashed rgba(0, 217, 206, 0.3);
+      border-radius: 12px;
+    }
+
+    .empty-timeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #555;
+      font-size: 16px;
+      border: 2px dashed #333;
+      border-radius: 16px;
+      margin: 20px 0;
+    }
+
+    .track-remove-btn {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .track-remove-btn:hover { color: #E91E8C; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+    // ── Data ──────────────────────────────────────────
+    const ELEMENTS = [
+      { name: 'Kick', color: '#dc2626', emoji: '\uD83D\uDD34' },
+      { name: 'Drums', color: '#ea580c', emoji: '\uD83D\uDFE0' },
+      { name: 'Hi-Hats', color: '#eab308', emoji: '\uD83D\uDFE1' },
+      { name: 'Bass', color: '#9333ea', emoji: '\uD83D\uDFE3' },
+      { name: 'Sub', color: '#6b21a8', emoji: '\uD83D\uDFEA' },
+      { name: 'Chords', color: '#3b82f6', emoji: '\uD83D\uDD35' },
+      { name: 'Mélodie', color: '#10b981', emoji: '\uD83D\uDFE2' },
+      { name: 'Pad', color: '#06b6d4', emoji: '\uD83E\uDE75' },
+      { name: 'Lead', color: '#fbbf24', emoji: '\u26A1' },
+      { name: 'FX', color: '#9ca3af', emoji: '\u26AA' },
+      { name: 'Vocals', color: '#ec4899', emoji: '\uD83E\uDE77' },
+      { name: 'Ambiance', color: '#4b5563', emoji: '\uD83C\uDF2B\uFE0F' },
+      { name: 'Arpège', color: '#1d4ed8', emoji: '\uD83D\uDFE6' },
+      { name: 'Percs', color: '#92400e', emoji: '\uD83D\uDFE4' },
+    ];
+
+    function measuresToSeconds(measures, bpm) {
+      return measures * 4 * (60 / bpm);
+    }
+
+    function secondsToTimeStr(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function secondsToMeasures(seconds, bpm) {
+      return seconds / (4 * (60 / bpm));
+    }
+
+    // ── Templates ────────────────────────────────────
+    function buildTemplate(name, bpm, sections) {
+      // sections: [{name, startMeasure, measures, elements, energy}]
+      const blocks = [];
+      const energyPoints = [];
+      let id = 1;
+      const tracksUsed = new Set();
+
+      sections.forEach(sec => {
+        const startSec = measuresToSeconds(sec.startMeasure, bpm);
+        const durSec = measuresToSeconds(sec.measures, bpm);
+        (sec.elements || []).forEach(elName => {
+          const el = ELEMENTS.find(e => e.name === elName);
+          if (!el) return;
+          tracksUsed.add(elName);
+          blocks.push({
+            id: 'b' + (id++),
+            element: elName,
+            color: el.color,
+            startTime: startSec,
+            duration: durSec,
+            track: elName,
+          });
+        });
+        // energy point at start of section
+        energyPoints.push({
+          id: 'ep' + sec.startMeasure,
+          time: startSec,
+          value: sec.energy || 5,
+        });
+      });
+
+      // final energy point
+      const lastSec = sections[sections.length - 1];
+      const endTime = measuresToSeconds(lastSec.startMeasure + lastSec.measures, bpm);
+      energyPoints.push({
+        id: 'ep-end',
+        time: endTime,
+        value: (lastSec.energy || 5) > 3 ? 2 : lastSec.energy || 2,
+      });
+
+      const sectionMarkers = sections.map(s => ({
+        name: s.name,
+        startTime: measuresToSeconds(s.startMeasure, bpm),
+        duration: measuresToSeconds(s.measures, bpm),
+      }));
+
+      return { blocks, energyPoints, tracks: [...tracksUsed], totalDuration: endTime, sectionMarkers };
+    }
+
+    const TEMPLATES = {
+      'disco-pop': () => buildTemplate('Disco-Pop', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 24, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Drums', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 32, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 48, measures: 16, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 64, measures: 8, elements: ['Kick', 'Bass', 'Drums', 'Hi-Hats', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 72, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Pont', startMeasure: 88, measures: 16, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Build', startMeasure: 104, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'FX', 'Vocals'], energy: 8 },
+        { name: 'Refrain final', startMeasure: 112, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 136, measures: 16, elements: ['Bass', 'Chords', 'Pad', 'Ambiance'], energy: 3 },
+      ]),
+      'afro-house': () => buildTemplate('Afro House', 122, [
+        { name: 'Intro', startMeasure: 0, measures: 24, elements: ['Percs', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 24, measures: 12, elements: ['Percs', 'Bass', 'Hi-Hats', 'Ambiance'], energy: 5 },
+        { name: 'Drop 1', startMeasure: 36, measures: 48, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords'], energy: 8 },
+        { name: 'Breakdown', startMeasure: 84, measures: 20, elements: ['Mélodie', 'Pad', 'Percs', 'Vocals'], energy: 4 },
+        { name: 'Build 2', startMeasure: 104, measures: 12, elements: ['Percs', 'Bass', 'Drums', 'FX'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 116, measures: 40, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords', 'Mélodie'], energy: 10 },
+        { name: 'Outro', startMeasure: 156, measures: 24, elements: ['Percs', 'Ambiance', 'Pad'], energy: 3 },
+      ]),
+      'tech-house': () => buildTemplate('Tech House', 128, [
+        { name: 'Intro', startMeasure: 0, measures: 32, elements: ['Kick', 'Hi-Hats', 'FX'], energy: 4 },
+        { name: 'Build', startMeasure: 32, measures: 16, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 48, measures: 32, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Break', startMeasure: 80, measures: 20, elements: ['Pad', 'FX', 'Vocals'], energy: 3 },
+        { name: 'Build 2', startMeasure: 100, measures: 8, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX', 'Drums'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 108, measures: 32, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 10 },
+        { name: 'Outro', startMeasure: 140, measures: 20, elements: ['Kick', 'Hi-Hats', 'Ambiance'], energy: 3 },
+      ]),
+      'lofi-hiphop': () => buildTemplate('Lo-fi Hip-Hop', 85, [
+        { name: 'Intro', startMeasure: 0, measures: 12, elements: ['Ambiance', 'FX'], energy: 2 },
+        { name: 'Loop A', startMeasure: 12, measures: 24, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance'], energy: 5 },
+        { name: 'Variation', startMeasure: 36, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Pad', 'Bass'], energy: 4 },
+        { name: 'Loop B', startMeasure: 48, measures: 24, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance', 'Vocals'], energy: 6 },
+        { name: 'Bridge', startMeasure: 72, measures: 8, elements: ['Chords', 'Ambiance', 'FX'], energy: 3 },
+        { name: "Loop A'", startMeasure: 80, measures: 20, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass'], energy: 5 },
+        { name: 'Outro', startMeasure: 100, measures: 12, elements: ['Chords', 'Ambiance'], energy: 2 },
+      ]),
+      'trap': () => buildTemplate('Trap', 150, [
+        { name: 'Intro', startMeasure: 0, measures: 12, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 12, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 28, measures: 6, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'FX', 'Vocals'], energy: 7 },
+        { name: 'Refrain', startMeasure: 34, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 46, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Bridge', startMeasure: 62, measures: 8, elements: ['Sub', 'Pad', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 70, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals', 'FX'], energy: 10 },
+        { name: 'Outro', startMeasure: 86, measures: 12, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+      ]),
+      'drill': () => buildTemplate('Drill', 142, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Ambiance', 'Sub', 'FX'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 6 },
+        { name: 'Refrain', startMeasure: 24, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Chords'], energy: 8 },
+        { name: 'Couplet 2', startMeasure: 32, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Mélodie'], energy: 6 },
+        { name: 'Pont', startMeasure: 48, measures: 8, elements: ['Sub', 'Vocals', 'Pad'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 56, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Chords', 'FX'], energy: 9 },
+        { name: 'Outro', startMeasure: 68, measures: 6, elements: ['Sub', 'Ambiance'], energy: 2 },
+      ]),
+      'boom-bap': () => buildTemplate('Boom Bap', 90, [
+        { name: 'Intro', startMeasure: 0, measures: 6, elements: ['Chords', 'Drums', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 6, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Refrain', startMeasure: 22, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 8 },
+        { name: 'Couplet 2', startMeasure: 30, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Pont', startMeasure: 46, measures: 8, elements: ['Chords', 'Bass', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 54, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Outro', startMeasure: 62, measures: 6, elements: ['Chords', 'Drums', 'Ambiance'], energy: 2 },
+      ]),
+      'pop-radio': () => buildTemplate('Pop Radio', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 6, elements: ['Chords', 'Vocals', 'Pad'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 6, measures: 12, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 18, measures: 6, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 24, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 36, measures: 12, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'Hi-Hats'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 48, measures: 6, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 54, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Pont', startMeasure: 66, measures: 12, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Refrain 3', startMeasure: 78, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 90, measures: 6, elements: ['Chords', 'Pad', 'Vocals'], energy: 3 },
+      ]),
+      'future-bass': () => buildTemplate('Future Bass', 135, [
+        { name: 'Intro', startMeasure: 0, measures: 16, elements: ['Pad', 'Vocals', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 16, measures: 12, elements: ['Pad', 'Vocals', 'Drums', 'FX', 'Chords'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 28, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Breakdown', startMeasure: 52, measures: 20, elements: ['Vocals', 'Chords', 'Pad', 'Ambiance'], energy: 4 },
+        { name: 'Build 2', startMeasure: 72, measures: 12, elements: ['Pad', 'Drums', 'FX', 'Chords', 'Vocals', 'Bass'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 84, measures: 24, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals', 'Arpège'], energy: 10 },
+        { name: 'Outro', startMeasure: 108, measures: 16, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
+      ]),
+    };
+
+    const STYLE_OPTIONS = [
+      { value: 'disco-pop', label: 'Disco-Pop / Nu-Disco', bpm: 120 },
+      { value: 'afro-house', label: 'Afro House', bpm: 122 },
+      { value: 'tech-house', label: 'Tech House', bpm: 128 },
+      { value: 'lofi-hiphop', label: 'Lo-fi Hip-Hop', bpm: 85 },
+      { value: 'trap', label: 'Trap', bpm: 150 },
+      { value: 'drill', label: 'Drill', bpm: 142 },
+      { value: 'boom-bap', label: 'Hip-Hop Boom Bap', bpm: 90 },
+      { value: 'pop-radio', label: 'Pop Radio Ready', bpm: 120 },
+      { value: 'future-bass', label: 'Future Bass / EDM', bpm: 135 },
+    ];
+
+    const PX_PER_SECOND = 12;
+
+    // ── App ──────────────────────────────────────────
+    function App() {
+      const [style, setStyle] = useState('disco-pop');
+      const [bpm, setBpm] = useState(120);
+      const [blocks, setBlocks] = useState([]);
+      const [tracks, setTracks] = useState([]);
+      const [totalDuration, setTotalDuration] = useState(300);
+      const [sectionMarkers, setSectionMarkers] = useState([]);
+      const [energyPoints, setEnergyPoints] = useState([]);
+      const [dragInfo, setDragInfo] = useState(null);
+      const [hoveredEnergy, setHoveredEnergy] = useState(null);
+      const timelineRef = useRef(null);
+      const energyCanvasRef = useRef(null);
+      const [dropTarget, setDropTarget] = useState(false);
+
+      // Load template
+      useEffect(() => {
+        loadTemplate(style);
+      }, []);
+
+      function loadTemplate(styleName) {
+        const opt = STYLE_OPTIONS.find(s => s.value === styleName);
+        if (!opt) return;
+        const template = TEMPLATES[styleName]();
+        setBpm(opt.bpm);
+        setBlocks(template.blocks);
+        setTracks(template.tracks);
+        setTotalDuration(template.totalDuration + 10);
+        setSectionMarkers(template.sectionMarkers);
+        setEnergyPoints(template.energyPoints);
+      }
+
+      function handleStyleChange(e) {
+        const v = e.target.value;
+        setStyle(v);
+        loadTemplate(v);
+      }
+
+      // ── Timeline drawing ──
+      const totalWidth = totalDuration * PX_PER_SECOND;
+
+      // Time ruler marks
+      const timeMarks = useMemo(() => {
+        const marks = [];
+        const interval = bpm >= 120 ? 10 : 15; // seconds
+        for (let t = 0; t <= totalDuration; t += interval) {
+          marks.push(t);
+        }
+        return marks;
+      }, [totalDuration, bpm]);
+
+      // Grid lines every 4 measures
+      const gridLines = useMemo(() => {
+        const lines = [];
+        const secPer4Measures = measuresToSeconds(4, bpm);
+        for (let t = 0; t <= totalDuration; t += secPer4Measures) {
+          const isMajor = Math.round(secondsToMeasures(t, bpm)) % 16 === 0;
+          lines.push({ time: t, major: isMajor });
+        }
+        return lines;
+      }, [totalDuration, bpm]);
+
+      // ── Drag from palette ──
+      function handlePaletteDragStart(e, element) {
+        e.dataTransfer.setData('element', JSON.stringify(element));
+        e.dataTransfer.effectAllowed = 'copy';
+      }
+
+      function handleTimelineDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setDropTarget(true);
+      }
+      function handleTimelineDragLeave() {
+        setDropTarget(false);
+      }
+
+      function handleTimelineDrop(e) {
+        e.preventDefault();
+        setDropTarget(false);
+        try {
+          const element = JSON.parse(e.dataTransfer.getData('element'));
+          if (!element) return;
+          const rect = timelineRef.current.getBoundingClientRect();
+          const x = e.clientX - rect.left + timelineRef.current.scrollLeft - 120;
+          const startTime = Math.max(0, x / PX_PER_SECOND);
+          const dur = measuresToSeconds(8, bpm);
+          const newBlock = {
+            id: 'b' + Date.now(),
+            element: element.name,
+            color: element.color,
+            startTime,
+            duration: dur,
+            track: element.name,
+          };
+          setBlocks(prev => [...prev, newBlock]);
+          if (!tracks.includes(element.name)) {
+            setTracks(prev => [...prev, element.name]);
+          }
+        } catch (err) {}
+      }
+
+      // ── Block drag (move) ──
+      function handleBlockMouseDown(e, blockId, mode) {
+        e.stopPropagation();
+        e.preventDefault();
+        const block = blocks.find(b => b.id === blockId);
+        if (!block) return;
+        const startX = e.clientX;
+        const origStart = block.startTime;
+        const origDur = block.duration;
+
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / PX_PER_SECOND;
+          setBlocks(prev => prev.map(b => {
+            if (b.id !== blockId) return b;
+            if (mode === 'move') {
+              return { ...b, startTime: Math.max(0, origStart + dt) };
+            } else if (mode === 'resize-right') {
+              return { ...b, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+            } else if (mode === 'resize-left') {
+              const newStart = Math.max(0, origStart + dt);
+              const newDur = origDur - (newStart - origStart);
+              if (newDur < measuresToSeconds(1, bpm)) return b;
+              return { ...b, startTime: newStart, duration: newDur };
+            }
+            return b;
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      function removeTrack(trackName) {
+        setTracks(prev => prev.filter(t => t !== trackName));
+        setBlocks(prev => prev.filter(b => b.track !== trackName));
+      }
+
+      // ── Energy curve ──
+      useEffect(() => {
+        drawEnergyCurve();
+      }, [energyPoints, totalDuration]);
+
+      function drawEnergyCurve() {
+        const canvas = energyCanvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = totalWidth;
+        const h = 70;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        if (energyPoints.length < 2) return;
+
+        const sorted = [...energyPoints].sort((a, b) => a.time - b.time);
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.5)');
+        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.5)');
+
+        // Fill
+        ctx.beginPath();
+        ctx.moveTo(sorted[0].time * PX_PER_SECOND, h);
+        sorted.forEach((p, i) => {
+          const x = p.time * PX_PER_SECOND;
+          const y = h - (p.value / 10) * (h - 8);
+          if (i === 0) ctx.lineTo(x, y);
+          else {
+            const prev = sorted[i - 1];
+            const px = prev.time * PX_PER_SECOND;
+            const py = h - (prev.value / 10) * (h - 8);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        const lastPt = sorted[sorted.length - 1];
+        ctx.lineTo(lastPt.time * PX_PER_SECOND, h);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Line
+        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+        lineGrad.addColorStop(0, '#00D9CE');
+        lineGrad.addColorStop(1, '#E91E8C');
+        ctx.beginPath();
+        sorted.forEach((p, i) => {
+          const x = p.time * PX_PER_SECOND;
+          const y = h - (p.value / 10) * (h - 8);
+          if (i === 0) ctx.moveTo(x, y);
+          else {
+            const prev = sorted[i - 1];
+            const px = prev.time * PX_PER_SECOND;
+            const py = h - (prev.value / 10) * (h - 8);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        ctx.strokeStyle = lineGrad;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      function handleEnergyPointDrag(e, pointId) {
+        e.preventDefault();
+        const container = e.target.parentElement;
+        const rect = container.getBoundingClientRect();
+        const h = 70;
+
+        function onMove(ev) {
+          const y = ev.clientY - rect.top;
+          const val = Math.round(Math.max(0, Math.min(10, (1 - y / h) * 10)));
+          setEnergyPoints(prev => prev.map(p => p.id === pointId ? { ...p, value: val } : p));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      // ── Exports ──
+      function exportPNG() {
+        const el = document.querySelector('.timeline-wrapper');
+        if (!el) return;
+        html2canvas(el, { backgroundColor: '#1a1a1a', scale: 2, scrollX: 0, scrollY: 0, width: el.scrollWidth, height: el.scrollHeight }).then(canvas => {
+          const link = document.createElement('a');
+          link.download = `trackmap-${style}.png`;
+          link.href = canvas.toDataURL();
+          link.click();
+        });
+      }
+
+      function exportTXT() {
+        let txt = `# Arrangement - ${STYLE_OPTIONS.find(s => s.value === style)?.label || style}\n`;
+        txt += `BPM : ${bpm} | Durée : ${secondsToTimeStr(totalDuration)}\n\n`;
+
+        sectionMarkers.forEach(sec => {
+          const endTime = sec.startTime + sec.duration;
+          const measures = Math.round(secondsToMeasures(sec.duration, bpm));
+          txt += `## ${sec.name.toUpperCase()} (${secondsToTimeStr(sec.startTime)}-${secondsToTimeStr(endTime)} | ${measures} mes)\n`;
+          const sectionBlocks = blocks.filter(b =>
+            b.startTime < endTime && (b.startTime + b.duration) > sec.startTime
+          );
+          const elements = [...new Set(sectionBlocks.map(b => b.element))];
+          elements.forEach(el => { txt += `- ${el}\n`; });
+          // Find energy
+          const ep = energyPoints.find(p => Math.abs(p.time - sec.startTime) < 1);
+          if (ep) {
+            const filled = '\u2588'.repeat(ep.value);
+            const empty = '\u2591'.repeat(10 - ep.value);
+            txt += `Énergie : ${filled}${empty} (${ep.value}/10)\n`;
+          }
+          txt += '\n';
+        });
+
+        const blob = new Blob([txt], { type: 'text/markdown' });
+        const link = document.createElement('a');
+        link.download = `trackmap-${style}.md`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      }
+
+      function exportMIDI() {
+        try {
+          const midi = new Midi();
+          midi.header.setTempo(bpm);
+
+          // Add section markers as text events
+          sectionMarkers.forEach(sec => {
+            midi.header.update();
+          });
+
+          // Create a track per element
+          const trackElements = [...new Set(blocks.map(b => b.element))];
+          trackElements.forEach((elName, idx) => {
+            const track = midi.addTrack();
+            track.name = elName;
+            track.channel = Math.min(idx, 15);
+            const elBlocks = blocks.filter(b => b.element === elName);
+            elBlocks.forEach(block => {
+              // Add a placeholder note (C3=48) for each block's active region
+              const noteNum = 48 + (idx % 12);
+              track.addNote({
+                midi: noteNum,
+                time: block.startTime,
+                duration: block.duration,
+                velocity: 0.8,
+              });
+            });
+          });
+
+          const arrayBuffer = midi.toArray();
+          const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+          const link = document.createElement('a');
+          link.download = `trackmap-${style}.mid`;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+        } catch(err) {
+          alert('Erreur export MIDI : ' + err.message);
+        }
+      }
+
+      // ── Save / Load localStorage ──
+      function saveProject() {
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints };
+        localStorage.setItem('trackmap-project', JSON.stringify(data));
+        alert('Projet sauvegardé !');
+      }
+
+      function loadProject() {
+        const raw = localStorage.getItem('trackmap-project');
+        if (!raw) return;
+        try {
+          const data = JSON.parse(raw);
+          setStyle(data.style);
+          setBpm(data.bpm);
+          setBlocks(data.blocks);
+          setTracks(data.tracks);
+          setTotalDuration(data.totalDuration);
+          setSectionMarkers(data.sectionMarkers || []);
+          setEnergyPoints(data.energyPoints || []);
+        } catch (err) {}
+      }
+
+      useEffect(() => { loadProject(); }, []);
+
+      // ── Render ─────────────────────────────────────
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          {/* Header */}
+          <div className="header">
+            <div className="header-left">
+              <span className="logo">{'\uD83D\uDDFA\uFE0F'} TrackMap</span>
+            </div>
+            <div className="header-controls">
+              <div>
+                <div className="label">Style</div>
+                <select className="select-styled" value={style} onChange={handleStyleChange}>
+                  {STYLE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="label">BPM</div>
+                <input
+                  className="input-styled"
+                  type="number"
+                  min="60"
+                  max="200"
+                  value={bpm}
+                  onChange={e => setBpm(parseInt(e.target.value) || 120)}
+                />
+              </div>
+              <div>
+                <div className="label">Durée (s)</div>
+                <input
+                  className="input-styled"
+                  type="number"
+                  min="30"
+                  max="600"
+                  value={Math.round(totalDuration)}
+                  onChange={e => setTotalDuration(parseInt(e.target.value) || 300)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Palette */}
+          <div className="palette-section">
+            <div className="palette-title">Palette d'éléments — glisser vers la timeline</div>
+            <div className="palette-grid">
+              {ELEMENTS.map(el => (
+                <div
+                  key={el.name}
+                  className="palette-item"
+                  style={{ background: el.color + '22', border: `1px solid ${el.color}55` }}
+                  draggable
+                  onDragStart={e => handlePaletteDragStart(e, el)}
+                >
+                  <span className="palette-dot" style={{ background: el.color }}></span>
+                  {el.name}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div
+            className={`timeline-container ${dropTarget ? 'drop-zone-highlight' : ''}`}
+            ref={timelineRef}
+            onDragOver={handleTimelineDragOver}
+            onDragLeave={handleTimelineDragLeave}
+            onDrop={handleTimelineDrop}
+            style={{ flex: 1, overflow: 'auto' }}
+          >
+            <div className="timeline-wrapper" style={{ width: totalWidth + 130 }}>
+              {/* Section markers */}
+              <div className="section-markers" style={{ width: totalWidth }}>
+                {sectionMarkers.map((sec, i) => (
+                  <div
+                    key={i}
+                    className="section-marker"
+                    style={{
+                      left: sec.startTime * PX_PER_SECOND,
+                      width: Math.max(30, sec.duration * PX_PER_SECOND - 2),
+                    }}
+                  >
+                    {sec.name}
+                  </div>
+                ))}
+              </div>
+
+              {/* Time ruler */}
+              <div className="time-ruler" style={{ width: totalWidth }}>
+                {timeMarks.map(t => (
+                  <React.Fragment key={t}>
+                    <span className="time-mark" style={{ left: t * PX_PER_SECOND }}>
+                      {secondsToTimeStr(t)}
+                    </span>
+                    <span className="time-tick" style={{ left: t * PX_PER_SECOND, height: 8 }}></span>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              {/* Tracks */}
+              <div className="tracks-area" style={{ position: 'relative' }}>
+                {/* Grid lines */}
+                <div className="grid-lines" style={{ width: totalWidth }}>
+                  {gridLines.map((gl, i) => (
+                    <div
+                      key={i}
+                      className={`grid-line ${gl.major ? 'major' : ''}`}
+                      style={{ left: gl.time * PX_PER_SECOND }}
+                    ></div>
+                  ))}
+                </div>
+
+                {tracks.length === 0 ? (
+                  <div className="empty-timeline">
+                    Glissez des éléments depuis la palette ou sélectionnez un style
+                  </div>
+                ) : (
+                  tracks.map(trackName => {
+                    const el = ELEMENTS.find(e => e.name === trackName);
+                    const trackBlocks = blocks.filter(b => b.track === trackName);
+                    return (
+                      <div className="track-row" key={trackName}>
+                        <div className="track-label">
+                          <span className="track-label-dot" style={{ background: el?.color || '#888' }}></span>
+                          <span className="track-label-text">{trackName}</span>
+                          <button className="track-remove-btn" onClick={() => removeTrack(trackName)} title="Supprimer la piste">&times;</button>
+                        </div>
+                        <div className="track-lane" style={{ width: totalWidth }}>
+                          {trackBlocks.map(block => (
+                            <div
+                              key={block.id}
+                              className="block"
+                              style={{
+                                left: block.startTime * PX_PER_SECOND,
+                                width: block.duration * PX_PER_SECOND,
+                                background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
+                                border: `1px solid ${block.color}`,
+                              }}
+                              onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
+                            >
+                              <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
+                              <span className="block-label">{block.element}</span>
+                              <div className="resize-handle right" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-right')}></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Energy curve */}
+                {energyPoints.length > 0 && (
+                  <div className="energy-curve-container" style={{ width: totalWidth }}>
+                    <span className="energy-label">Énergie</span>
+                    <canvas ref={energyCanvasRef} className="energy-canvas" style={{ width: totalWidth, height: 70 }}></canvas>
+                    {energyPoints.map(p => {
+                      const x = p.time * PX_PER_SECOND;
+                      const y = 70 - (p.value / 10) * 62;
+                      return (
+                        <React.Fragment key={p.id}>
+                          <div
+                            className="energy-point"
+                            style={{ left: x, top: y }}
+                            onMouseDown={e => handleEnergyPointDrag(e, p.id)}
+                            onMouseEnter={() => setHoveredEnergy(p.id)}
+                            onMouseLeave={() => setHoveredEnergy(null)}
+                          ></div>
+                          {hoveredEnergy === p.id && (
+                            <div className="energy-tooltip" style={{ left: x, top: y }}>
+                              Énergie : {p.value}/10
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="footer-bar">
+            <div className="footer-info">
+              {tracks.length} pistes | {blocks.length} blocs | {secondsToTimeStr(totalDuration)} | {bpm} BPM | {Math.round(secondsToMeasures(totalDuration, bpm))} mesures
+            </div>
+            <div className="footer-actions">
+              <button className="btn btn-primary" onClick={exportMIDI}>
+                {'\uD83D\uDCE5'} Export MIDI
+              </button>
+              <button className="btn btn-secondary" onClick={exportPNG}>
+                {'\uD83D\uDCF7'} Export PNG
+              </button>
+              <button className="btn btn-secondary" onClick={exportTXT}>
+                {'\uD83D\uDCDD'} Export TXT
+              </button>
+              <button className="btn btn-accent" onClick={saveProject}>
+                {'\uD83D\uDCBE'} Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+  </script>
+</body>
+</html>
