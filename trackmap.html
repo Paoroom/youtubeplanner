@@ -324,6 +324,49 @@
       margin-left: 12px;
     }
 
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .zoom-slider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+      outline: none;
+    }
+    .zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00D9CE;
+      cursor: pointer;
+    }
+    .zoom-value {
+      font-size: 11px;
+      color: #888;
+      min-width: 36px;
+      text-align: center;
+    }
+    .btn-fit {
+      background: #333;
+      color: #00D9CE;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-fit:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
     .energy-curve-container {
       position: relative;
       margin-left: 120px;
@@ -549,10 +592,17 @@
     const TEMPLATES = {
       'custom': () => buildTemplate('Custom', 120, [
         { name: 'Intro', startMeasure: 0, measures: 8, elements: [], energy: 3 },
-        { name: 'Section A', startMeasure: 8, measures: 16, elements: [], energy: 5 },
-        { name: 'Section B', startMeasure: 24, measures: 16, elements: [], energy: 7 },
-        { name: 'Section C', startMeasure: 40, measures: 16, elements: [], energy: 9 },
-        { name: 'Outro', startMeasure: 56, measures: 8, elements: [], energy: 3 },
+        { name: 'Section A', startMeasure: 8, measures: 8, elements: [], energy: 5 },
+        { name: 'Section B', startMeasure: 16, measures: 8, elements: [], energy: 6 },
+        { name: 'Section C', startMeasure: 24, measures: 8, elements: [], energy: 7 },
+        { name: 'Section D', startMeasure: 32, measures: 8, elements: [], energy: 8 },
+        { name: 'Section E', startMeasure: 40, measures: 8, elements: [], energy: 9 },
+        { name: 'Section F', startMeasure: 48, measures: 8, elements: [], energy: 7 },
+        { name: 'Section G', startMeasure: 56, measures: 8, elements: [], energy: 5 },
+        { name: 'Section H', startMeasure: 64, measures: 8, elements: [], energy: 8 },
+        { name: 'Section I', startMeasure: 72, measures: 8, elements: [], energy: 9 },
+        { name: 'Section J', startMeasure: 80, measures: 8, elements: [], energy: 6 },
+        { name: 'Outro', startMeasure: 88, measures: 8, elements: [], energy: 3 },
       ]),
       'disco-pop': () => buildTemplate('Disco-Pop', 120, [
         { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
@@ -658,7 +708,7 @@
       { value: 'future-bass', label: 'Future Bass / EDM', bpm: 135 },
     ];
 
-    const PX_PER_SECOND = 12;
+    const DEFAULT_PX_PER_SECOND = 12;
 
     // ── App ──────────────────────────────────────────
     function App() {
@@ -676,6 +726,16 @@
       const [dropTarget, setDropTarget] = useState(false);
       const [selectedBlockId, setSelectedBlockId] = useState(null);
       const [editingSectionIdx, setEditingSectionIdx] = useState(null);
+      const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
+
+      function fitToScreen() {
+        const container = timelineRef.current;
+        if (!container) return;
+        const availableWidth = container.clientWidth - 150; // minus track labels + padding
+        if (totalDuration > 0) {
+          setPxPerSecond(Math.max(1, Math.min(30, availableWidth / totalDuration)));
+        }
+      }
 
       // Keyboard: Delete/Backspace to remove selected block
       useEffect(() => {
@@ -725,13 +785,13 @@
       }
 
       // ── Timeline drawing ──
-      const totalWidth = totalDuration * PX_PER_SECOND;
+      const totalWidth = totalDuration * pxPerSecond;
 
-      // Time ruler marks
+      // Time ruler marks — every 4 measures
       const timeMarks = useMemo(() => {
         const marks = [];
-        const interval = bpm >= 120 ? 10 : 15; // seconds
-        for (let t = 0; t <= totalDuration; t += interval) {
+        const secPer4Mes = measuresToSeconds(4, bpm);
+        for (let t = 0; t <= totalDuration; t += secPer4Mes) {
           marks.push(t);
         }
         return marks;
@@ -771,7 +831,7 @@
           if (!element) return;
           const rect = timelineRef.current.getBoundingClientRect();
           const x = e.clientX - rect.left + timelineRef.current.scrollLeft - 120;
-          const startTime = Math.max(0, x / PX_PER_SECOND);
+          const startTime = Math.max(0, x / pxPerSecond);
           const dur = measuresToSeconds(8, bpm);
           const newBlock = {
             id: 'b' + Date.now(),
@@ -800,7 +860,7 @@
 
         function onMove(ev) {
           const dx = ev.clientX - startX;
-          const dt = dx / PX_PER_SECOND;
+          const dt = dx / pxPerSecond;
           setBlocks(prev => prev.map(b => {
             if (b.id !== blockId) return b;
             if (mode === 'move') {
@@ -842,7 +902,7 @@
         setEditingSectionIdx(null);
       }
 
-      // ── Section marker drag (move) & resize ──
+      // ── Section marker drag (move) & resize — energy points follow ──
       function handleSectionMouseDown(e, idx, mode) {
         e.stopPropagation();
         e.preventDefault();
@@ -854,20 +914,30 @@
 
         function onMove(ev) {
           const dx = ev.clientX - startX;
-          const dt = dx / PX_PER_SECOND;
-          setSectionMarkers(prev => prev.map((s, i) => {
-            if (i !== idx) return s;
-            if (mode === 'move') {
-              return { ...s, startTime: Math.max(0, origStart + dt) };
-            } else if (mode === 'resize-right') {
-              return { ...s, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
-            } else if (mode === 'resize-left') {
-              const newStart = Math.max(0, origStart + dt);
-              const newDur = origDur - (newStart - origStart);
-              if (newDur < measuresToSeconds(1, bpm)) return s;
-              return { ...s, startTime: newStart, duration: newDur };
-            }
-            return s;
+          const dt = dx / pxPerSecond;
+          let newStart = origStart;
+          let newDur = origDur;
+
+          if (mode === 'move') {
+            newStart = Math.max(0, origStart + dt);
+            newDur = origDur;
+          } else if (mode === 'resize-right') {
+            newDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
+          } else if (mode === 'resize-left') {
+            newStart = Math.max(0, origStart + dt);
+            newDur = origDur - (newStart - origStart);
+            if (newDur < measuresToSeconds(1, bpm)) return;
+          }
+
+          setSectionMarkers(prev => prev.map((s, i) =>
+            i === idx ? { ...s, startTime: newStart, duration: newDur } : s
+          ));
+
+          // Sync energy points: ep-start-{idx} → section start, ep-end-{idx} → section end
+          setEnergyPoints(prev => prev.map(p => {
+            if (p.id === 'ep-start-' + idx) return { ...p, time: newStart };
+            if (p.id === 'ep-end-' + idx) return { ...p, time: newStart + newDur };
+            return p;
           }));
         }
         function onUp() {
@@ -881,7 +951,7 @@
       // ── Energy curve ──
       useEffect(() => {
         drawEnergyCurve();
-      }, [energyPoints, totalDuration]);
+      }, [energyPoints, totalDuration, pxPerSecond]);
 
       function drawEnergyCurve() {
         const canvas = energyCanvasRef.current;
@@ -901,21 +971,21 @@
 
         // Fill
         ctx.beginPath();
-        ctx.moveTo(sorted[0].time * PX_PER_SECOND, h);
+        ctx.moveTo(sorted[0].time * pxPerSecond, h);
         sorted.forEach((p, i) => {
-          const x = p.time * PX_PER_SECOND;
+          const x = p.time * pxPerSecond;
           const y = h - (p.value / 10) * (h - 8);
           if (i === 0) ctx.lineTo(x, y);
           else {
             const prev = sorted[i - 1];
-            const px = prev.time * PX_PER_SECOND;
+            const px = prev.time * pxPerSecond;
             const py = h - (prev.value / 10) * (h - 8);
             const cx = (px + x) / 2;
             ctx.bezierCurveTo(cx, py, cx, y, x, y);
           }
         });
         const lastPt = sorted[sorted.length - 1];
-        ctx.lineTo(lastPt.time * PX_PER_SECOND, h);
+        ctx.lineTo(lastPt.time * pxPerSecond, h);
         ctx.closePath();
         ctx.fillStyle = gradient;
         ctx.fill();
@@ -926,12 +996,12 @@
         lineGrad.addColorStop(1, '#E91E8C');
         ctx.beginPath();
         sorted.forEach((p, i) => {
-          const x = p.time * PX_PER_SECOND;
+          const x = p.time * pxPerSecond;
           const y = h - (p.value / 10) * (h - 8);
           if (i === 0) ctx.moveTo(x, y);
           else {
             const prev = sorted[i - 1];
-            const px = prev.time * PX_PER_SECOND;
+            const px = prev.time * pxPerSecond;
             const py = h - (prev.value / 10) * (h - 8);
             const cx = (px + x) / 2;
             ctx.bezierCurveTo(cx, py, cx, y, x, y);
@@ -1106,6 +1176,22 @@
                   onChange={e => setTotalDuration(parseInt(e.target.value) || 300)}
                 />
               </div>
+              <div>
+                <div className="label">Zoom</div>
+                <div className="zoom-controls">
+                  <input
+                    className="zoom-slider"
+                    type="range"
+                    min="1"
+                    max="30"
+                    step="0.5"
+                    value={pxPerSecond}
+                    onChange={e => setPxPerSecond(parseFloat(e.target.value))}
+                  />
+                  <span className="zoom-value">{Math.round(pxPerSecond / DEFAULT_PX_PER_SECOND * 100)}%</span>
+                  <button className="btn-fit" onClick={fitToScreen}>Fit</button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1146,8 +1232,8 @@
                     key={i}
                     className="section-marker"
                     style={{
-                      left: sec.startTime * PX_PER_SECOND,
-                      width: Math.max(30, sec.duration * PX_PER_SECOND - 2),
+                      left: sec.startTime * pxPerSecond,
+                      width: Math.max(30, sec.duration * pxPerSecond - 2),
                     }}
                     onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
                     onDoubleClick={() => handleSectionDoubleClick(i)}
@@ -1178,13 +1264,13 @@
                   const mes = Math.round(secondsToMeasures(t, bpm));
                   return (
                     <React.Fragment key={t}>
-                      <span className="time-mark" style={{ left: t * PX_PER_SECOND }}>
+                      <span className="time-mark" style={{ left: t * pxPerSecond }}>
                         {secondsToTimeStr(t)}
                       </span>
-                      <span className="time-mark-measures" style={{ left: t * PX_PER_SECOND }}>
+                      <span className="time-mark-measures" style={{ left: t * pxPerSecond }}>
                         {mes} mes
                       </span>
-                      <span className="time-tick" style={{ left: t * PX_PER_SECOND, height: 12 }}></span>
+                      <span className="time-tick" style={{ left: t * pxPerSecond, height: 12 }}></span>
                     </React.Fragment>
                   );
                 })}
@@ -1198,7 +1284,7 @@
                     <div
                       key={i}
                       className={`grid-line ${gl.major ? 'major' : ''}`}
-                      style={{ left: gl.time * PX_PER_SECOND }}
+                      style={{ left: gl.time * pxPerSecond }}
                     ></div>
                   ))}
                 </div>
@@ -1224,8 +1310,8 @@
                               key={block.id}
                               className={`block ${selectedBlockId === block.id ? 'selected' : ''}`}
                               style={{
-                                left: block.startTime * PX_PER_SECOND,
-                                width: block.duration * PX_PER_SECOND,
+                                left: block.startTime * pxPerSecond,
+                                width: block.duration * pxPerSecond,
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
@@ -1249,7 +1335,7 @@
                     <span className="energy-label">Énergie</span>
                     <canvas ref={energyCanvasRef} className="energy-canvas" style={{ width: totalWidth, height: 70 }}></canvas>
                     {energyPoints.map(p => {
-                      const x = p.time * PX_PER_SECOND;
+                      const x = p.time * pxPerSecond;
                       const y = 70 - (p.value / 10) * 62;
                       return (
                         <React.Fragment key={p.id}>
