@@ -269,6 +269,48 @@
       white-space: nowrap;
       text-overflow: ellipsis;
       padding: 0 6px;
+      cursor: grab;
+      user-select: none;
+    }
+    .section-marker:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.3);
+    }
+    .section-resize-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 5;
+    }
+    .section-resize-handle.left { left: 0; }
+    .section-resize-handle.right { right: 0; }
+    .section-resize-handle:hover { background: rgba(0, 217, 206, 0.3); border-radius: 3px; }
+    .section-name-input {
+      background: transparent;
+      border: none;
+      color: #00D9CE;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: center;
+      width: 100%;
+      outline: none;
+      padding: 0;
+    }
+
+    .block.selected {
+      outline: 2px solid #fff;
+      outline-offset: 1px;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+      z-index: 15;
+    }
+    .selection-hint {
+      font-size: 11px;
+      color: #666;
+      margin-left: 12px;
     }
 
     .energy-curve-container {
@@ -491,6 +533,13 @@
     }
 
     const TEMPLATES = {
+      'custom': () => buildTemplate('Custom', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: [], energy: 3 },
+        { name: 'Section A', startMeasure: 8, measures: 16, elements: [], energy: 5 },
+        { name: 'Section B', startMeasure: 24, measures: 16, elements: [], energy: 7 },
+        { name: 'Section C', startMeasure: 40, measures: 16, elements: [], energy: 9 },
+        { name: 'Outro', startMeasure: 56, measures: 8, elements: [], energy: 3 },
+      ]),
       'disco-pop': () => buildTemplate('Disco-Pop', 120, [
         { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
         { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
@@ -583,6 +632,7 @@
     };
 
     const STYLE_OPTIONS = [
+      { value: 'custom', label: 'Custom (libre)', bpm: 120 },
       { value: 'disco-pop', label: 'Disco-Pop / Nu-Disco', bpm: 120 },
       { value: 'afro-house', label: 'Afro House', bpm: 122 },
       { value: 'tech-house', label: 'Tech House', bpm: 128 },
@@ -610,6 +660,32 @@
       const timelineRef = useRef(null);
       const energyCanvasRef = useRef(null);
       const [dropTarget, setDropTarget] = useState(false);
+      const [selectedBlockId, setSelectedBlockId] = useState(null);
+      const [editingSectionIdx, setEditingSectionIdx] = useState(null);
+
+      // Keyboard: Delete/Backspace to remove selected block
+      useEffect(() => {
+        function handleKeyDown(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId) {
+            e.preventDefault();
+            setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
+            setSelectedBlockId(null);
+          }
+          if (e.key === 'Escape') {
+            setSelectedBlockId(null);
+            setEditingSectionIdx(null);
+          }
+        }
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [selectedBlockId]);
+
+      // Deselect block when clicking on empty area
+      function handleTimelineClick(e) {
+        if (e.target.closest('.block') || e.target.closest('.section-marker')) return;
+        setSelectedBlockId(null);
+      }
 
       // Load template
       useEffect(() => {
@@ -737,6 +813,55 @@
       function removeTrack(trackName) {
         setTracks(prev => prev.filter(t => t !== trackName));
         setBlocks(prev => prev.filter(b => b.track !== trackName));
+      }
+
+      // ── Section marker rename ──
+      function handleSectionDoubleClick(idx) {
+        setEditingSectionIdx(idx);
+      }
+
+      function handleSectionRename(idx, newName) {
+        setSectionMarkers(prev => prev.map((s, i) => i === idx ? { ...s, name: newName } : s));
+      }
+
+      function handleSectionRenameConfirm() {
+        setEditingSectionIdx(null);
+      }
+
+      // ── Section marker drag (move) & resize ──
+      function handleSectionMouseDown(e, idx, mode) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (mode === 'rename') return;
+        const sec = sectionMarkers[idx];
+        const startX = e.clientX;
+        const origStart = sec.startTime;
+        const origDur = sec.duration;
+
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / PX_PER_SECOND;
+          setSectionMarkers(prev => prev.map((s, i) => {
+            if (i !== idx) return s;
+            if (mode === 'move') {
+              return { ...s, startTime: Math.max(0, origStart + dt) };
+            } else if (mode === 'resize-right') {
+              return { ...s, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+            } else if (mode === 'resize-left') {
+              const newStart = Math.max(0, origStart + dt);
+              const newDur = origDur - (newStart - origStart);
+              if (newDur < measuresToSeconds(1, bpm)) return s;
+              return { ...s, startTime: newStart, duration: newDur };
+            }
+            return s;
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
       }
 
       // ── Energy curve ──
@@ -997,6 +1122,7 @@
             onDragLeave={handleTimelineDragLeave}
             onDrop={handleTimelineDrop}
             style={{ flex: 1, overflow: 'auto' }}
+            onClick={handleTimelineClick}
           >
             <div className="timeline-wrapper" style={{ width: totalWidth + 130 }}>
               {/* Section markers */}
@@ -1009,8 +1135,25 @@
                       left: sec.startTime * PX_PER_SECOND,
                       width: Math.max(30, sec.duration * PX_PER_SECOND - 2),
                     }}
+                    onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
+                    onDoubleClick={() => handleSectionDoubleClick(i)}
                   >
-                    {sec.name}
+                    <div className="section-resize-handle left" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-left')}></div>
+                    {editingSectionIdx === i ? (
+                      <input
+                        className="section-name-input"
+                        value={sec.name}
+                        autoFocus
+                        onChange={e => handleSectionRename(i, e.target.value)}
+                        onBlur={handleSectionRenameConfirm}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSectionRenameConfirm(); }}
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      sec.name
+                    )}
+                    <div className="section-resize-handle right" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-right')}></div>
                   </div>
                 ))}
               </div>
@@ -1059,13 +1202,14 @@
                           {trackBlocks.map(block => (
                             <div
                               key={block.id}
-                              className="block"
+                              className={`block ${selectedBlockId === block.id ? 'selected' : ''}`}
                               style={{
                                 left: block.startTime * PX_PER_SECOND,
                                 width: block.duration * PX_PER_SECOND,
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
+                              onClick={e => { e.stopPropagation(); setSelectedBlockId(block.id); }}
                               onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
                             >
                               <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
@@ -1114,6 +1258,7 @@
           <div className="footer-bar">
             <div className="footer-info">
               {tracks.length} pistes | {blocks.length} blocs | {secondsToTimeStr(totalDuration)} | {bpm} BPM | {Math.round(secondsToMeasures(totalDuration, bpm))} mesures
+              {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer</span>}
             </div>
             <div className="footer-actions">
               <button className="btn btn-primary" onClick={exportMIDI}>
