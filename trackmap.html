@@ -534,6 +534,9 @@
         });
       });
 
+      const lastSec = sections[sections.length - 1];
+      const endTime = measuresToSeconds(lastSec.startMeasure + lastSec.measures, bpm);
+
       const sectionMarkers = sections.map(s => ({
         name: s.name,
         startTime: measuresToSeconds(s.startMeasure, bpm),
