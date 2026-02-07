@@ -767,6 +767,10 @@
       const [selectedBlockId, setSelectedBlockId] = useState(null);
       const [editingSectionIdx, setEditingSectionIdx] = useState(null);
       const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
+      const [elements, setElements] = useState(ELEMENTS);
+      const [addingElement, setAddingElement] = useState(false);
+      const [newElName, setNewElName] = useState('');
+      const [newElColor, setNewElColor] = useState('#00D9CE');
 
       function fitToScreen() {
         const container = timelineRef.current;
@@ -1265,7 +1269,7 @@
           <div className="palette-section">
             <div className="palette-title">Palette d'éléments — glisser vers la timeline</div>
             <div className="palette-grid">
-              {ELEMENTS.map(el => (
+              {elements.map(el => (
                 <div
                   key={el.name}
                   className="palette-item"
@@ -1277,6 +1281,52 @@
                   {el.name}
                 </div>
               ))}
+              {addingElement ? (
+                <div className="palette-item" style={{ background: '#333', border: '1px solid #00D9CE', gap: '6px', cursor: 'default' }}>
+                  <input
+                    type="color"
+                    value={newElColor}
+                    onChange={e => setNewElColor(e.target.value)}
+                    style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                  />
+                  <input
+                    autoFocus
+                    placeholder="Nom..."
+                    value={newElName}
+                    onChange={e => setNewElName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newElName.trim()) {
+                        setElements(prev => [...prev, { name: newElName.trim(), color: newElColor, emoji: '🔵' }]);
+                        setNewElName('');
+                        setNewElColor('#00D9CE');
+                        setAddingElement(false);
+                      }
+                      if (e.key === 'Escape') { setAddingElement(false); setNewElName(''); }
+                    }}
+                    style={{ background: '#444', border: '1px solid #555', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 12, width: 100 }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (newElName.trim()) {
+                        setElements(prev => [...prev, { name: newElName.trim(), color: newElColor, emoji: '🔵' }]);
+                        setNewElName('');
+                        setNewElColor('#00D9CE');
+                        setAddingElement(false);
+                      }
+                    }}
+                    style={{ background: '#00D9CE', color: '#000', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                  >OK</button>
+                </div>
+              ) : (
+                <div
+                  className="palette-item"
+                  style={{ background: '#2a2a2a', border: '1px dashed #555', cursor: 'pointer', color: '#888' }}
+                  onClick={() => setAddingElement(true)}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+                  Ajouter
+                </div>
+              )}
             </div>
           </div>
 
@@ -1374,7 +1424,7 @@
                   </div>
                 ) : (
                   tracks.map(trackName => {
-                    const el = ELEMENTS.find(e => e.name === trackName);
+                    const el = elements.find(e => e.name === trackName);
                     const trackBlocks = blocks.filter(b => b.track === trackName);
                     return (
                       <div className="track-row" key={trackName}>
