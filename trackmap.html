@@ -689,6 +689,81 @@
       justify-content: center;
     }
     .add-note-btn:hover { border-color: #00D9CE; color: #00D9CE; }
+
+    .playhead-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ff4444;
+      z-index: 25;
+      pointer-events: none;
+    }
+    .playhead-head {
+      position: absolute;
+      top: -6px;
+      left: -5px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #ff4444;
+    }
+
+    .play-btn {
+      background: #333;
+      border: 1px solid #555;
+      color: #00D9CE;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .play-btn:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.3);
+    }
+    .play-btn.playing {
+      color: #ff4444;
+      border-color: #ff4444;
+    }
+
+    .section-delete-btn {
+      position: absolute;
+      top: 1px;
+      right: 2px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.3);
+      cursor: pointer;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0 2px;
+      z-index: 5;
+    }
+    .section-delete-btn:hover { color: #E91E8C; }
+
+    .note-resize-handle {
+      position: absolute;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 3;
+    }
+    .note-resize-handle.left { left: 0; }
+    .note-resize-handle.right { right: 0; }
+    .note-resize-handle:hover { background: rgba(0, 217, 206, 0.3); }
+
+    .detected-bpm {
+      font-size: 10px;
+      color: #E91E8C;
+      font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -932,8 +1007,62 @@
       const audioInputRef = useRef(null);
       const [notes, setNotes] = useState([]);
       const [editingNoteId, setEditingNoteId] = useState(null);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [playheadTime, setPlayheadTime] = useState(0);
+      const audioCtxRef = useRef(null);
+      const audioSourceRef = useRef(null);
+      const playStartRef = useRef(0);
+      const playOffsetRef = useRef(0);
+      const animFrameRef = useRef(null);
+      const [detectedBpm, setDetectedBpm] = useState(null);
 
       // ── Audio import & waveform ──
+      function detectBPM(buffer) {
+        const channelData = buffer.getChannelData(0);
+        const sampleRate = buffer.sampleRate;
+        // Downsample for speed
+        const downsampleFactor = 4;
+        const len = Math.floor(channelData.length / downsampleFactor);
+        const data = new Float32Array(len);
+        for (let i = 0; i < len; i++) {
+          data[i] = Math.abs(channelData[i * downsampleFactor]);
+        }
+        const effRate = sampleRate / downsampleFactor;
+        // Low-pass via moving average
+        const windowSize = Math.floor(effRate / 20);
+        const envelope = new Float32Array(len);
+        let sum = 0;
+        for (let i = 0; i < len; i++) {
+          sum += data[i];
+          if (i >= windowSize) sum -= data[i - windowSize];
+          envelope[i] = sum / Math.min(i + 1, windowSize);
+        }
+        // Onset detection - difference
+        const diff = new Float32Array(len);
+        for (let i = 1; i < len; i++) {
+          diff[i] = Math.max(0, envelope[i] - envelope[i - 1]);
+        }
+        // Autocorrelation on onset signal for BPM range 60-200
+        const minLag = Math.floor(effRate * 60 / 200);
+        const maxLag = Math.floor(effRate * 60 / 60);
+        const analysisLen = Math.min(diff.length, Math.floor(effRate * 20)); // 20 sec
+        let bestLag = minLag;
+        let bestCorr = -Infinity;
+        for (let lag = minLag; lag <= maxLag; lag++) {
+          let corr = 0;
+          const end = Math.min(analysisLen, diff.length - lag);
+          for (let i = 0; i < end; i++) {
+            corr += diff[i] * diff[i + lag];
+          }
+          if (corr > bestCorr) {
+            bestCorr = corr;
+            bestLag = lag;
+          }
+        }
+        const detBpm = Math.round(effRate * 60 / bestLag);
+        return detBpm;
+      }
+
       function handleAudioImport(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -941,7 +1070,7 @@
         const reader = new FileReader();
         reader.onload = function(evt) {
           const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-          audioCtx.decodeAudioData(evt.target.result, function(buffer) {
+          audioCtx.decodeAudioData(evt.target.result.slice(0), function(buffer) {
             setAudioBuffer(buffer);
             setTotalDuration(buffer.duration + 10);
             // Compute waveform peaks
@@ -959,6 +1088,14 @@
               peaks.push(max);
             }
             setWaveformData({ peaks, duration: buffer.duration });
+            // BPM detection
+            try {
+              const detBpm = detectBPM(buffer);
+              if (detBpm >= 60 && detBpm <= 200) {
+                setDetectedBpm(detBpm);
+                setBpm(detBpm);
+              }
+            } catch(err) {}
             audioCtx.close();
           }, function(err) {
             alert('Erreur de décodage audio : ' + err);
@@ -968,11 +1105,82 @@
         e.target.value = '';
       }
 
+      // ── Audio playback ──
+      function togglePlay() {
+        if (!audioBuffer) return;
+        if (isPlaying) {
+          stopPlayback();
+        } else {
+          startPlayback(playheadTime);
+        }
+      }
+
+      function startPlayback(fromTime) {
+        if (!audioBuffer) return;
+        stopPlayback();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtxRef.current = ctx;
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        const audioTime = Math.max(0, fromTime - audioOffset);
+        const audioEnd = audioBuffer.duration;
+        if (audioTime >= audioEnd) return;
+        source.start(0, audioTime);
+        audioSourceRef.current = source;
+        playStartRef.current = ctx.currentTime;
+        playOffsetRef.current = fromTime;
+        setIsPlaying(true);
+        source.onended = () => {
+          setIsPlaying(false);
+          cancelAnimationFrame(animFrameRef.current);
+        };
+        function updatePlayhead() {
+          if (!audioCtxRef.current) return;
+          const elapsed = audioCtxRef.current.currentTime - playStartRef.current;
+          setPlayheadTime(playOffsetRef.current + elapsed);
+          animFrameRef.current = requestAnimationFrame(updatePlayhead);
+        }
+        updatePlayhead();
+      }
+
+      function stopPlayback() {
+        if (audioSourceRef.current) {
+          try { audioSourceRef.current.stop(); } catch(e) {}
+          audioSourceRef.current = null;
+        }
+        if (audioCtxRef.current) {
+          try { audioCtxRef.current.close(); } catch(e) {}
+          audioCtxRef.current = null;
+        }
+        cancelAnimationFrame(animFrameRef.current);
+        setIsPlaying(false);
+      }
+
+      function seekAudio(e) {
+        if (!waveformData) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const time = x / pxPerSecond;
+        setPlayheadTime(Math.max(0, time));
+        if (isPlaying) {
+          startPlayback(Math.max(0, time));
+        }
+      }
+
+      // Cleanup on unmount
+      useEffect(() => {
+        return () => { stopPlayback(); };
+      }, []);
+
       function removeAudio() {
+        stopPlayback();
         setAudioBuffer(null);
         setAudioName('');
         setWaveformData(null);
         setAudioOffset(0);
+        setDetectedBpm(null);
+        setPlayheadTime(0);
       }
 
       // Draw waveform
@@ -1002,7 +1210,17 @@
           const barH = peak * (h - 4);
           ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW - 0.5), barH);
         });
-      }, [waveformData, totalWidth, pxPerSecond, audioOffset]);
+        // Draw playhead
+        if (playheadTime > 0) {
+          const phX = playheadTime * pxPerSecond;
+          ctx.strokeStyle = '#ff4444';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(phX, 0);
+          ctx.lineTo(phX, h);
+          ctx.stroke();
+        }
+      }, [waveformData, totalWidth, pxPerSecond, audioOffset, playheadTime]);
 
       // ── Notes ──
       function addNote() {
@@ -1024,6 +1242,37 @@
       function deleteNote(id) {
         setNotes(prev => prev.filter(n => n.id !== id));
         setEditingNoteId(null);
+      }
+
+      function handleNoteResize(e, noteId, side) {
+        e.stopPropagation();
+        e.preventDefault();
+        const startX = e.clientX;
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        const origStart = note.startTime;
+        const origDur = note.duration;
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          setNotes(prev => prev.map(n => {
+            if (n.id !== noteId) return n;
+            if (side === 'right') {
+              return { ...n, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+            } else {
+              const newStart = Math.max(0, origStart + dt);
+              const newDur = origDur - (newStart - origStart);
+              if (newDur < measuresToSeconds(1, bpm)) return n;
+              return { ...n, startTime: newStart, duration: newDur };
+            }
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
       }
 
       function fitToScreen() {
@@ -1201,6 +1450,30 @@
       }
 
       // ── Add section at the end ──
+      function deleteSection(idx) {
+        const sec = sectionMarkers[idx];
+        if (!sec) return;
+        // Remove associated energy points
+        const startId = 'ep-start-' + idx;
+        const endId = 'ep-end-' + idx;
+        setEnergyPoints(prev => prev.filter(p => p.id !== startId && p.id !== endId));
+        setSectionMarkers(prev => prev.filter((_, i) => i !== idx));
+        // Re-index remaining energy points
+        setTimeout(() => {
+          setSectionMarkers(curr => {
+            setEnergyPoints(prevEp => {
+              const newEp = [];
+              curr.forEach((s, i) => {
+                newEp.push({ id: 'ep-start-' + i, time: s.startTime, value: prevEp.find(p => Math.abs(p.time - s.startTime) < 0.5)?.value || 5 });
+                newEp.push({ id: 'ep-end-' + i, time: s.startTime + s.duration, value: prevEp.find(p => Math.abs(p.time - (s.startTime + s.duration)) < 0.5)?.value || 3 });
+              });
+              return newEp;
+            });
+            return curr;
+          });
+        }, 50);
+      }
+
       function addSection() {
         const lastSec = sectionMarkers[sectionMarkers.length - 1];
         const newStart = lastSec ? lastSec.startTime + lastSec.duration : 0;
@@ -1552,6 +1825,7 @@
                         title="Décalage en secondes"
                       />
                       <span style={{ fontSize: 10, color: '#666' }}>s</span>
+                      {detectedBpm && <span className="detected-bpm" title="BPM détecté automatiquement">BPM détecté: {detectedBpm}</span>}
                       <button className="audio-remove-btn" onClick={removeAudio} title="Retirer l'audio">&times;</button>
                     </>
                   ) : (
@@ -1669,6 +1943,12 @@
                       sec.name
                     )}
                     <div className="section-resize-handle right" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-right')}></div>
+                    <button
+                      className="section-delete-btn"
+                      onClick={e => { e.stopPropagation(); deleteSection(i); }}
+                      onMouseDown={e => e.stopPropagation()}
+                      title="Supprimer cette section"
+                    >&times;</button>
                   </div>
                 ))}
                 {/* Add section button */}
@@ -1706,6 +1986,12 @@
 
               {/* Tracks */}
               <div className="tracks-area" style={{ position: 'relative' }}>
+                {/* Playhead */}
+                {waveformData && playheadTime > 0 && (
+                  <div className="playhead-line" style={{ left: 120 + playheadTime * pxPerSecond }}>
+                    <div className="playhead-head"></div>
+                  </div>
+                )}
                 {/* Grid lines */}
                 <div className="grid-lines" style={{ width: totalWidth }}>
                   {gridLines.map((gl, i) => (
@@ -1722,9 +2008,11 @@
                   <div className="waveform-row">
                     <div className="waveform-label">
                       <span>{'\uD83C\uDFB5'} Audio</span>
-                      <span style={{ fontSize: 10, color: '#666' }}>{audioName}</span>
+                      <button className={`play-btn ${isPlaying ? 'playing' : ''}`} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Lecture'}>
+                        {isPlaying ? '\u23F8' : '\u25B6'}
+                      </button>
                     </div>
-                    <div className="waveform-lane" style={{ width: totalWidth }}>
+                    <div className="waveform-lane" style={{ width: totalWidth, cursor: 'pointer' }} onClick={seekAudio}>
                       <canvas ref={waveformCanvasRef} className="waveform-canvas" style={{ width: totalWidth, height: 56 }}></canvas>
                     </div>
                   </div>
@@ -1810,12 +2098,13 @@
                   </div>
                   <div className="notes-lane" style={{ width: totalWidth }}>
                     {notes.map(note => (
-                      editingNoteId === note.id ? (
-                        <div
-                          key={note.id}
-                          className="note-marker"
-                          style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
-                        >
+                      <div
+                        key={note.id}
+                        className="note-marker"
+                        style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
+                      >
+                        <div className="note-resize-handle left" onMouseDown={e => handleNoteResize(e, note.id, 'left')}></div>
+                        {editingNoteId === note.id ? (
                           <input
                             className="note-input"
                             autoFocus
@@ -1829,19 +2118,18 @@
                             onBlur={() => setEditingNoteId(null)}
                             placeholder="Écrire une note..."
                           />
-                        </div>
-                      ) : (
-                        <div
-                          key={note.id}
-                          className="note-marker"
-                          style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
-                          onClick={() => setEditingNoteId(note.id)}
-                          onDoubleClick={() => deleteNote(note.id)}
-                          title="Clic pour éditer · Double-clic pour supprimer"
-                        >
-                          {note.text || '...'}
-                        </div>
-                      )
+                        ) : (
+                          <span
+                            style={{ cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            onClick={() => setEditingNoteId(note.id)}
+                            onDoubleClick={() => deleteNote(note.id)}
+                            title="Clic pour éditer · Double-clic pour supprimer"
+                          >
+                            {note.text || '...'}
+                          </span>
+                        )}
+                        <div className="note-resize-handle right" onMouseDown={e => handleNoteResize(e, note.id, 'right')}></div>
+                      </div>
                     ))}
                   </div>
                 </div>
