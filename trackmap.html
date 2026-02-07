@@ -1174,12 +1174,132 @@
           newEnergyPoints.push({ id: 'ep-end-' + i, time: startTime + dur, value: sec.energy });
         });
 
-        return { markers: newMarkers, energyPoints: newEnergyPoints };
+        // Detect instruments per section via spectral analysis
+        const sampleRate = buffer.sampleRate;
+        const fftSize = 4096;
+        const detectedTracks = new Set();
+        const detectedBlocks = [];
+
+        labeledSections.forEach((sec, i) => {
+          const startSample = Math.floor(sec.startChunk * secPer4Measures * sampleRate);
+          const endSample = Math.min(Math.floor(sec.endChunk * secPer4Measures * sampleRate), channelData.length);
+          const secDuration = (sec.endChunk - sec.startChunk) * secPer4Measures;
+          const secStartTime = sec.startChunk * secPer4Measures;
+
+          // Compute average spectral energy in frequency bands
+          const numFrames = Math.min(10, Math.floor((endSample - startSample) / fftSize));
+          if (numFrames === 0) return;
+          const bands = { sub: 0, low: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0 };
+
+          for (let f = 0; f < numFrames; f++) {
+            const offset = startSample + Math.floor(f * (endSample - startSample - fftSize) / numFrames);
+            // Simple DFT on key frequency bins
+            const frameLen = Math.min(fftSize, endSample - offset);
+            const frame = new Float32Array(frameLen);
+            for (let s = 0; s < frameLen; s++) {
+              frame[s] = channelData[offset + s] * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / frameLen)); // Hanning window
+            }
+            // Energy in frequency bands using Goertzel-like approach
+            const binRes = sampleRate / frameLen;
+            function bandEnergy(fLow, fHigh) {
+              const binLow = Math.floor(fLow / binRes);
+              const binHigh = Math.ceil(fHigh / binRes);
+              let energy = 0;
+              for (let b = binLow; b <= Math.min(binHigh, frameLen / 2); b++) {
+                let re = 0, im = 0;
+                const freq = 2 * Math.PI * b / frameLen;
+                for (let s = 0; s < frameLen; s++) {
+                  re += frame[s] * Math.cos(freq * s);
+                  im -= frame[s] * Math.sin(freq * s);
+                }
+                energy += re * re + im * im;
+              }
+              return energy / (binHigh - binLow + 1);
+            }
+            bands.sub += bandEnergy(20, 60);
+            bands.low += bandEnergy(60, 200);
+            bands.lowMid += bandEnergy(200, 500);
+            bands.mid += bandEnergy(500, 2000);
+            bands.highMid += bandEnergy(2000, 6000);
+            bands.high += bandEnergy(6000, 12000);
+            bands.presence += bandEnergy(2000, 5000);
+          }
+          // Average
+          Object.keys(bands).forEach(k => bands[k] /= numFrames);
+
+          // Normalize bands relative to each other
+          const allBands = Object.values(bands);
+          const maxBand = Math.max(...allBands, 0.0001);
+          const norm = {};
+          Object.keys(bands).forEach(k => norm[k] = bands[k] / maxBand);
+
+          // Map frequency bands to instruments
+          const secInstruments = [];
+          // Kick: strong sub + low
+          if (norm.sub > 0.3 || norm.low > 0.4) {
+            secInstruments.push('Kick');
+          }
+          // Bass / Sub bass
+          if (norm.sub > 0.5) {
+            secInstruments.push('Bass');
+          }
+          // Hi-Hats: high frequency content
+          if (norm.high > 0.2 || norm.highMid > 0.35) {
+            secInstruments.push('Hi-Hats');
+          }
+          // Chords: mid-range presence
+          if (norm.mid > 0.4 && norm.lowMid > 0.3) {
+            secInstruments.push('Chords');
+          }
+          // Vocals: presence band (2-5kHz) prominent
+          if (norm.presence > 0.45 && norm.mid > 0.35) {
+            secInstruments.push('Vocals');
+          }
+          // Lead: high-mid prominent
+          if (norm.highMid > 0.4 && norm.mid > 0.3 && !secInstruments.includes('Vocals')) {
+            secInstruments.push('Lead');
+          }
+          // Drums: transient energy in low-mid
+          if (norm.lowMid > 0.35 && (norm.low > 0.3 || norm.highMid > 0.25)) {
+            if (!secInstruments.includes('Kick')) secInstruments.push('Drums');
+          }
+
+          // Create blocks for detected instruments
+          secInstruments.forEach(instName => {
+            const el = ELEMENTS.find(e => e.name === instName);
+            if (!el) return;
+            detectedTracks.add(instName);
+            detectedBlocks.push({
+              id: 'b' + Date.now() + '-' + i + '-' + instName,
+              element: instName,
+              color: el.color,
+              startTime: secStartTime,
+              duration: secDuration,
+              track: instName,
+            });
+          });
+        });
+
+        return {
+          markers: newMarkers,
+          energyPoints: newEnergyPoints,
+          tracks: [...detectedTracks],
+          blocks: detectedBlocks,
+        };
       }
 
       function handleAudioImport(e) {
         const file = e.target.files[0];
         if (!file) return;
+        // Reset arrangement completely
+        stopPlayback();
+        setBlocks([]);
+        setTracks([]);
+        setSectionMarkers([]);
+        setEnergyPoints([]);
+        setNotes([]);
+        setSelectedBlockId(null);
+        setPlayheadTime(0);
         setAudioName(file.name);
         const reader = new FileReader();
         reader.onload = function(evt) {
@@ -1205,18 +1325,24 @@
             // BPM detection
             let audioBpm = null;
             try {
-              const detBpm = detectBPM(buffer);
+              let detBpm = detectBPM(buffer);
               if (detBpm >= 60 && detBpm <= 200) {
+                // Double if below 75 (likely half-time detection)
+                if (detBpm < 75) detBpm = detBpm * 2;
                 setDetectedBpm(detBpm);
                 setBpm(detBpm);
                 audioBpm = detBpm;
               }
             } catch(err) {}
-            // Auto-analyze structure: sections + energy
+            // Auto-analyze structure: sections, energy, instruments
             try {
               const analysis = analyzeAudioStructure(buffer, audioBpm);
               setSectionMarkers(analysis.markers);
               setEnergyPoints(analysis.energyPoints);
+              if (analysis.tracks && analysis.tracks.length > 0) {
+                setTracks(analysis.tracks);
+                setBlocks(analysis.blocks);
+              }
             } catch(err) {
               console.warn('Analyse audio échouée:', err);
             }
@@ -1432,7 +1558,20 @@
         }
       }
 
-      // Keyboard: Delete/Backspace to remove selected block
+      function duplicateBlock(blockId) {
+        const block = blocks.find(b => b.id === blockId);
+        if (!block) return;
+        const newBlock = {
+          ...block,
+          id: 'b' + Date.now(),
+          startTime: block.startTime + block.duration,
+        };
+        setBlocks(prev => [...prev, newBlock]);
+        setSelectedBlockId(newBlock.id);
+        return newBlock.id;
+      }
+
+      // Keyboard: Delete/Backspace to remove, Cmd+D to duplicate
       useEffect(() => {
         function handleKeyDown(e) {
           if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1441,6 +1580,10 @@
             setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
             setSelectedBlockId(null);
           }
+          if (e.key === 'd' && (e.metaKey || e.ctrlKey) && selectedBlockId) {
+            e.preventDefault();
+            duplicateBlock(selectedBlockId);
+          }
           if (e.key === 'Escape') {
             setSelectedBlockId(null);
             setEditingSectionIdx(null);
@@ -1448,7 +1591,7 @@
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockId]);
+      }, [selectedBlockId, blocks]);
 
       // Deselect block when clicking on empty area
       function handleTimelineClick(e) {
@@ -2204,7 +2347,7 @@
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
-                              onClick={e => { e.stopPropagation(); setSelectedBlockId(block.id); }}
+                              onClick={e => { e.stopPropagation(); if (e.altKey) { duplicateBlock(block.id); } else { setSelectedBlockId(block.id); } }}
                               onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
                             >
                               <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
