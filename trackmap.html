@@ -536,6 +536,159 @@
       transition: color 0.15s;
     }
     .track-remove-btn:hover { color: #E91E8C; }
+
+    .waveform-row {
+      display: flex;
+      align-items: center;
+      min-height: 60px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .waveform-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #e0e0e0;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .waveform-canvas {
+      height: 56px;
+      position: absolute;
+      top: 2px;
+      left: 0;
+    }
+    .waveform-lane {
+      position: relative;
+      height: 60px;
+      overflow: hidden;
+    }
+
+    .audio-import-btn {
+      background: #333;
+      color: #00D9CE;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .audio-import-btn:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .audio-offset-input {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      width: 60px;
+      text-align: center;
+    }
+    .audio-offset-input:focus {
+      border-color: #00D9CE;
+      outline: none;
+    }
+    .audio-remove-btn {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .audio-remove-btn:hover { color: #E91E8C; }
+
+    .notes-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 36px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .notes-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #9ca3af;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .notes-lane {
+      position: relative;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+    }
+    .note-marker {
+      position: absolute;
+      top: 2px;
+      height: calc(100% - 4px);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11px;
+      color: #ccc;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      min-width: 20px;
+    }
+    .note-marker:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .note-input {
+      background: #333;
+      color: #fff;
+      border: 1px solid #00D9CE;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11px;
+      width: 100%;
+      outline: none;
+    }
+    .add-note-btn {
+      position: absolute;
+      right: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: 1px dashed #555;
+      color: #555;
+      border-radius: 4px;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .add-note-btn:hover { border-color: #00D9CE; color: #00D9CE; }
   </style>
 </head>
 <body>
@@ -771,6 +924,107 @@
       const [addingElement, setAddingElement] = useState(false);
       const [newElName, setNewElName] = useState('');
       const [newElColor, setNewElColor] = useState('#00D9CE');
+      const [audioBuffer, setAudioBuffer] = useState(null);
+      const [audioName, setAudioName] = useState('');
+      const [audioOffset, setAudioOffset] = useState(0);
+      const [waveformData, setWaveformData] = useState(null);
+      const waveformCanvasRef = useRef(null);
+      const audioInputRef = useRef(null);
+      const [notes, setNotes] = useState([]);
+      const [editingNoteId, setEditingNoteId] = useState(null);
+
+      // ── Audio import & waveform ──
+      function handleAudioImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        setAudioName(file.name);
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          audioCtx.decodeAudioData(evt.target.result, function(buffer) {
+            setAudioBuffer(buffer);
+            setTotalDuration(buffer.duration + 10);
+            // Compute waveform peaks
+            const channelData = buffer.getChannelData(0);
+            const numPeaks = 2000;
+            const samplesPerPeak = Math.floor(channelData.length / numPeaks);
+            const peaks = [];
+            for (let i = 0; i < numPeaks; i++) {
+              let max = 0;
+              const start = i * samplesPerPeak;
+              for (let j = start; j < start + samplesPerPeak && j < channelData.length; j++) {
+                const abs = Math.abs(channelData[j]);
+                if (abs > max) max = abs;
+              }
+              peaks.push(max);
+            }
+            setWaveformData({ peaks, duration: buffer.duration });
+            audioCtx.close();
+          }, function(err) {
+            alert('Erreur de décodage audio : ' + err);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = '';
+      }
+
+      function removeAudio() {
+        setAudioBuffer(null);
+        setAudioName('');
+        setWaveformData(null);
+        setAudioOffset(0);
+      }
+
+      // Draw waveform
+      useEffect(() => {
+        if (!waveformData || !waveformCanvasRef.current) return;
+        const canvas = waveformCanvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const w = totalWidth;
+        const h = 56;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+
+        const { peaks, duration } = waveformData;
+        const offsetPx = audioOffset * pxPerSecond;
+        const audioPxWidth = duration * pxPerSecond;
+
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.6)');
+        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.6)');
+        ctx.fillStyle = gradient;
+
+        const barW = Math.max(1, audioPxWidth / peaks.length);
+        peaks.forEach((peak, i) => {
+          const x = offsetPx + (i / peaks.length) * audioPxWidth;
+          if (x < 0 || x > w) return;
+          const barH = peak * (h - 4);
+          ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW - 0.5), barH);
+        });
+      }, [waveformData, totalWidth, pxPerSecond, audioOffset]);
+
+      // ── Notes ──
+      function addNote() {
+        const lastNote = notes[notes.length - 1];
+        const startTime = lastNote ? lastNote.startTime + lastNote.duration : 0;
+        const dur = measuresToSeconds(8, bpm);
+        setNotes(prev => [...prev, {
+          id: 'note-' + Date.now(),
+          startTime,
+          duration: dur,
+          text: '',
+        }]);
+      }
+
+      function updateNoteText(id, text) {
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+      }
+
+      function deleteNote(id) {
+        setNotes(prev => prev.filter(n => n.id !== id));
+        setEditingNoteId(null);
+      }
 
       function fitToScreen() {
         const container = timelineRef.current;
@@ -1136,6 +1390,14 @@
           txt += '\n';
         });
 
+        if (notes.length > 0) {
+          txt += '## NOTES\n';
+          notes.forEach(n => {
+            if (n.text) txt += `- [${secondsToTimeStr(n.startTime)}] ${n.text}\n`;
+          });
+          txt += '\n';
+        }
+
         const blob = new Blob([txt], { type: 'text/markdown' });
         const link = document.createElement('a');
         link.download = `trackmap-${style}.md`;
@@ -1185,7 +1447,7 @@
 
       // ── Save / Load localStorage ──
       function saveProject() {
-        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints };
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
         localStorage.setItem('trackmap-project', JSON.stringify(data));
         alert('Projet sauvegardé !');
       }
@@ -1202,6 +1464,9 @@
           setTotalDuration(data.totalDuration);
           setSectionMarkers(data.sectionMarkers || []);
           setEnergyPoints(data.energyPoints || []);
+          setNotes(data.notes || []);
+          if (data.audioOffset) setAudioOffset(data.audioOffset);
+          if (data.elements && data.elements.length) setElements([...ELEMENTS, ...data.elements]);
         } catch (err) {}
       }
 
@@ -1260,6 +1525,40 @@
                   />
                   <span className="zoom-value">{Math.round(pxPerSecond / DEFAULT_PX_PER_SECOND * 100)}%</span>
                   <button className="btn-fit" onClick={fitToScreen}>Fit</button>
+                </div>
+              </div>
+              <div>
+                <div className="label">Audio</div>
+                <div className="audio-controls">
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    style={{ display: 'none' }}
+                    onChange={handleAudioImport}
+                  />
+                  {audioName ? (
+                    <>
+                      <span style={{ fontSize: 11, color: '#00D9CE', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={audioName}>
+                        {'\uD83C\uDFB5'} {audioName}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#888' }}>Offset:</span>
+                      <input
+                        className="audio-offset-input"
+                        type="number"
+                        step="0.01"
+                        value={audioOffset}
+                        onChange={e => setAudioOffset(parseFloat(e.target.value) || 0)}
+                        title="Décalage en secondes"
+                      />
+                      <span style={{ fontSize: 10, color: '#666' }}>s</span>
+                      <button className="audio-remove-btn" onClick={removeAudio} title="Retirer l'audio">&times;</button>
+                    </>
+                  ) : (
+                    <button className="audio-import-btn" onClick={() => audioInputRef.current?.click()}>
+                      {'\uD83C\uDFB5'} Importer
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -1418,7 +1717,20 @@
                   ))}
                 </div>
 
-                {tracks.length === 0 ? (
+                {/* Waveform row */}
+                {waveformData && (
+                  <div className="waveform-row">
+                    <div className="waveform-label">
+                      <span>{'\uD83C\uDFB5'} Audio</span>
+                      <span style={{ fontSize: 10, color: '#666' }}>{audioName}</span>
+                    </div>
+                    <div className="waveform-lane" style={{ width: totalWidth }}>
+                      <canvas ref={waveformCanvasRef} className="waveform-canvas" style={{ width: totalWidth, height: 56 }}></canvas>
+                    </div>
+                  </div>
+                )}
+
+                {tracks.length === 0 && !waveformData ? (
                   <div className="empty-timeline">
                     Glissez des éléments depuis la palette ou sélectionnez un style
                   </div>
@@ -1485,6 +1797,54 @@
                     })}
                   </div>
                 )}
+
+                {/* Notes row */}
+                <div className="notes-row">
+                  <div className="notes-label">
+                    {'\uD83D\uDCDD'} Notes
+                    <button
+                      onClick={addNote}
+                      style={{ background: 'none', border: '1px dashed #555', color: '#888', borderRadius: 4, cursor: 'pointer', fontSize: 11, padding: '1px 6px' }}
+                      title="Ajouter une note"
+                    >+</button>
+                  </div>
+                  <div className="notes-lane" style={{ width: totalWidth }}>
+                    {notes.map(note => (
+                      editingNoteId === note.id ? (
+                        <div
+                          key={note.id}
+                          className="note-marker"
+                          style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
+                        >
+                          <input
+                            className="note-input"
+                            autoFocus
+                            value={note.text}
+                            onChange={e => updateNoteText(note.id, e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') setEditingNoteId(null);
+                              if (e.key === 'Escape') setEditingNoteId(null);
+                              if (e.key === 'Delete' && !note.text) { e.preventDefault(); deleteNote(note.id); }
+                            }}
+                            onBlur={() => setEditingNoteId(null)}
+                            placeholder="Écrire une note..."
+                          />
+                        </div>
+                      ) : (
+                        <div
+                          key={note.id}
+                          className="note-marker"
+                          style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
+                          onClick={() => setEditingNoteId(note.id)}
+                          onDoubleClick={() => deleteNote(note.id)}
+                          title="Clic pour éditer · Double-clic pour supprimer"
+                        >
+                          {note.text || '...'}
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
