@@ -1275,10 +1275,34 @@
         window.addEventListener('mouseup', onUp);
       }
 
+      function handleNoteMove(e, noteId) {
+        if (e.target.closest('.note-resize-handle') || e.target.closest('.note-input')) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const startX = e.clientX;
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        const origStart = note.startTime;
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          const newStart = Math.max(0, origStart + dt);
+          setNotes(prev => prev.map(n =>
+            n.id === noteId ? { ...n, startTime: newStart } : n
+          ));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
       function fitToScreen() {
         const container = timelineRef.current;
         if (!container) return;
-        const availableWidth = container.clientWidth - 150; // minus track labels + padding
+        const availableWidth = container.clientWidth - 150;
         if (totalDuration > 0) {
           setPxPerSecond(Math.max(1, Math.min(30, availableWidth / totalDuration)));
         }
@@ -2101,7 +2125,8 @@
                       <div
                         key={note.id}
                         className="note-marker"
-                        style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond }}
+                        style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
+                        onMouseDown={e => handleNoteMove(e, note.id)}
                       >
                         <div className="note-resize-handle left" onMouseDown={e => handleNoteResize(e, note.id, 'left')}></div>
                         {editingNoteId === note.id ? (
