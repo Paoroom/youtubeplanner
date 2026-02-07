@@ -1990,7 +1990,7 @@
           <div className="palette-section">
             <div className="palette-title">Palette d'éléments — glisser vers la timeline</div>
             <div className="palette-grid">
-              {elements.map(el => (
+              {elements.map((el, idx) => (
                 <div
                   key={el.name}
                   className="palette-item"
@@ -1998,7 +1998,19 @@
                   draggable
                   onDragStart={e => handlePaletteDragStart(e, el)}
                 >
-                  <span className="palette-dot" style={{ background: el.color }}></span>
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0, padding: 0 }}>
+                    <input
+                      type="color"
+                      value={el.color}
+                      onChange={e => {
+                        const newColor = e.target.value;
+                        setElements(prev => prev.map((item, i) => i === idx ? { ...item, color: newColor } : item));
+                        setBlocks(prev => prev.map(b => b.element === el.name ? { ...b, color: newColor } : b));
+                      }}
+                      style={{ width: 0, height: 0, padding: 0, border: 'none', visibility: 'hidden', position: 'absolute' }}
+                    />
+                    <span className="palette-dot" style={{ background: el.color }}></span>
+                  </label>
                   {el.name}
                 </div>
               ))}
