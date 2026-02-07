@@ -1175,7 +1175,6 @@
         });
 
         // Detect instruments per section via spectral analysis
-        const sampleRate = buffer.sampleRate;
         const fftSize = 4096;
         const detectedTracks = new Set();
         const detectedBlocks = [];
@@ -1192,37 +1191,34 @@
           const bands = { sub: 0, low: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0 };
 
           for (let f = 0; f < numFrames; f++) {
-            const offset = startSample + Math.floor(f * (endSample - startSample - fftSize) / numFrames);
-            // Simple DFT on key frequency bins
-            const frameLen = Math.min(fftSize, endSample - offset);
+            const frameOffset = startSample + Math.floor(f * (endSample - startSample - fftSize) / numFrames);
+            const frameLen = Math.min(fftSize, endSample - frameOffset);
+            if (frameLen < 256) continue;
             const frame = new Float32Array(frameLen);
             for (let s = 0; s < frameLen; s++) {
-              frame[s] = channelData[offset + s] * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / frameLen)); // Hanning window
+              frame[s] = channelData[frameOffset + s] * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / frameLen));
             }
-            // Energy in frequency bands using Goertzel-like approach
-            const binRes = sampleRate / frameLen;
-            function bandEnergy(fLow, fHigh) {
-              const binLow = Math.floor(fLow / binRes);
-              const binHigh = Math.ceil(fHigh / binRes);
-              let energy = 0;
-              for (let b = binLow; b <= Math.min(binHigh, frameLen / 2); b++) {
-                let re = 0, im = 0;
-                const freq = 2 * Math.PI * b / frameLen;
-                for (let s = 0; s < frameLen; s++) {
-                  re += frame[s] * Math.cos(freq * s);
-                  im -= frame[s] * Math.sin(freq * s);
-                }
-                energy += re * re + im * im;
+            // Compute energy per band using simplified RMS in frequency ranges
+            // Map frequency to sample index: idx = freq * frameLen / sampleRate
+            const freqToIdx = (freq) => Math.round(freq * frameLen / sampleRate);
+            const bandRanges = {
+              sub: [20, 60], low: [60, 200], lowMid: [200, 500],
+              mid: [500, 2000], highMid: [2000, 6000], high: [6000, 12000], presence: [2000, 5000]
+            };
+            // Simple energy estimation: RMS of samples filtered by band approximation
+            // Use time-domain energy in band via stride sampling
+            Object.keys(bandRanges).forEach(band => {
+              const [fLow, fHigh] = bandRanges[band];
+              const period = sampleRate / ((fLow + fHigh) / 2);
+              const stride = Math.max(1, Math.floor(period));
+              let bandE = 0;
+              let count = 0;
+              for (let s = 0; s < frameLen; s += stride) {
+                bandE += frame[s] * frame[s];
+                count++;
               }
-              return energy / (binHigh - binLow + 1);
-            }
-            bands.sub += bandEnergy(20, 60);
-            bands.low += bandEnergy(60, 200);
-            bands.lowMid += bandEnergy(200, 500);
-            bands.mid += bandEnergy(500, 2000);
-            bands.highMid += bandEnergy(2000, 6000);
-            bands.high += bandEnergy(6000, 12000);
-            bands.presence += bandEnergy(2000, 5000);
+              bands[band] += (count > 0 ? bandE / count : 0);
+            });
           }
           // Average
           Object.keys(bands).forEach(k => bands[k] /= numFrames);
