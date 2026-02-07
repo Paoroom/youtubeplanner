@@ -1063,6 +1063,120 @@
         return detBpm;
       }
 
+      function analyzeAudioStructure(buffer, audioBpm) {
+        const channelData = buffer.getChannelData(0);
+        const sampleRate = buffer.sampleRate;
+        const duration = buffer.duration;
+        const useBpm = audioBpm || 120;
+
+        // Compute RMS energy per 4-measure chunk (snapped to grid)
+        const secPer4Measures = measuresToSeconds(4, useBpm);
+        const numChunks = Math.max(1, Math.floor(duration / secPer4Measures));
+        const rmsValues = [];
+        for (let c = 0; c < numChunks; c++) {
+          const startSample = Math.floor(c * secPer4Measures * sampleRate);
+          const endSample = Math.min(Math.floor((c + 1) * secPer4Measures * sampleRate), channelData.length);
+          let sumSq = 0;
+          const count = endSample - startSample;
+          for (let s = startSample; s < endSample; s++) {
+            sumSq += channelData[s] * channelData[s];
+          }
+          rmsValues.push(Math.sqrt(sumSq / count));
+        }
+
+        // Normalize to 1-10
+        const maxRms = Math.max(...rmsValues, 0.0001);
+        const minRms = Math.min(...rmsValues);
+        const range = maxRms - minRms || 1;
+        const energyLevels = rmsValues.map(r => Math.round(1 + ((r - minRms) / range) * 9));
+
+        // Group consecutive chunks with similar energy into sections
+        // A new section starts when energy changes by >= 2 levels
+        const sections = [];
+        let secStart = 0;
+        let secEnergies = [energyLevels[0]];
+        for (let i = 1; i < energyLevels.length; i++) {
+          const avgEnergy = Math.round(secEnergies.reduce((a, b) => a + b, 0) / secEnergies.length);
+          const diff = Math.abs(energyLevels[i] - avgEnergy);
+          // Start new section if energy change is significant or section is already 16+ measures long
+          if (diff >= 2 || secEnergies.length >= 4) {
+            sections.push({
+              startChunk: secStart,
+              endChunk: i,
+              energy: avgEnergy,
+            });
+            secStart = i;
+            secEnergies = [energyLevels[i]];
+          } else {
+            secEnergies.push(energyLevels[i]);
+          }
+        }
+        // Push last section
+        if (secStart < energyLevels.length) {
+          const avgEnergy = Math.round(secEnergies.reduce((a, b) => a + b, 0) / secEnergies.length);
+          sections.push({ startChunk: secStart, endChunk: energyLevels.length, energy: avgEnergy });
+        }
+
+        // Label sections intelligently based on energy and position
+        const maxEnergy = Math.max(...sections.map(s => s.energy));
+        const labeledSections = [];
+        let coupletCount = 0;
+        let refrainCount = 0;
+        sections.forEach((sec, i) => {
+          const ratio = sec.energy / maxEnergy;
+          const isFirst = i === 0;
+          const isLast = i === sections.length - 1;
+          let name;
+          if (isFirst && ratio < 0.6) {
+            name = 'Intro';
+          } else if (isLast && ratio < 0.6) {
+            name = 'Outro';
+          } else if (ratio >= 0.85) {
+            refrainCount++;
+            name = refrainCount === 1 ? 'Refrain' : 'Refrain ' + refrainCount;
+          } else if (ratio >= 0.65) {
+            // Check if energy is rising (build) or high (pre-refrain)
+            const prev = i > 0 ? sections[i - 1].energy : 0;
+            const next = i < sections.length - 1 ? sections[i + 1].energy : 0;
+            if (next > sec.energy && next / maxEnergy >= 0.85) {
+              name = 'Build';
+            } else if (prev > sec.energy) {
+              name = 'Breakdown';
+            } else {
+              coupletCount++;
+              name = coupletCount === 1 ? 'Couplet' : 'Couplet ' + coupletCount;
+            }
+          } else if (ratio >= 0.4) {
+            const prev = i > 0 ? sections[i - 1].energy : 0;
+            const next = i < sections.length - 1 ? sections[i + 1].energy : 0;
+            if (prev > sec.energy && next > sec.energy) {
+              name = 'Pont';
+            } else {
+              coupletCount++;
+              name = coupletCount === 1 ? 'Couplet' : 'Couplet ' + coupletCount;
+            }
+          } else {
+            if (isFirst) name = 'Intro';
+            else if (isLast) name = 'Outro';
+            else name = 'Break';
+          }
+          labeledSections.push({ ...sec, name });
+        });
+
+        // Convert to sectionMarkers and energyPoints
+        const newMarkers = [];
+        const newEnergyPoints = [];
+        labeledSections.forEach((sec, i) => {
+          const startTime = sec.startChunk * secPer4Measures;
+          const dur = (sec.endChunk - sec.startChunk) * secPer4Measures;
+          newMarkers.push({ name: sec.name, startTime, duration: dur });
+          newEnergyPoints.push({ id: 'ep-start-' + i, time: startTime, value: sec.energy });
+          newEnergyPoints.push({ id: 'ep-end-' + i, time: startTime + dur, value: sec.energy });
+        });
+
+        return { markers: newMarkers, energyPoints: newEnergyPoints };
+      }
+
       function handleAudioImport(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -1089,13 +1203,23 @@
             }
             setWaveformData({ peaks, duration: buffer.duration });
             // BPM detection
+            let audioBpm = null;
             try {
               const detBpm = detectBPM(buffer);
               if (detBpm >= 60 && detBpm <= 200) {
                 setDetectedBpm(detBpm);
                 setBpm(detBpm);
+                audioBpm = detBpm;
               }
             } catch(err) {}
+            // Auto-analyze structure: sections + energy
+            try {
+              const analysis = analyzeAudioStructure(buffer, audioBpm);
+              setSectionMarkers(analysis.markers);
+              setEnergyPoints(analysis.energyPoints);
+            } catch(err) {
+              console.warn('Analyse audio échouée:', err);
+            }
             audioCtx.close();
           }, function(err) {
             alert('Erreur de décodage audio : ' + err);
