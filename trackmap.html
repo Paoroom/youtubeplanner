@@ -44,6 +44,18 @@
       -webkit-text-fill-color: transparent;
       letter-spacing: -0.5px;
     }
+    .logo-tm {
+      font-size: 11px;
+      vertical-align: super;
+      -webkit-text-fill-color: #00D9CE;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: #666;
+      font-weight: 400;
+      margin-left: 8px;
+      -webkit-text-fill-color: #666;
+    }
     .header-controls { display: flex; align-items: center; gap: 12px; }
 
     .select-styled {
@@ -371,6 +383,28 @@
     .btn-fit:hover {
       border-color: #00D9CE;
       box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .btn-add-section {
+      position: absolute;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      border: 1px dashed rgba(0, 217, 206, 0.4);
+      background: rgba(0, 217, 206, 0.06);
+      color: #00D9CE;
+      width: 32px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-add-section:hover {
+      background: rgba(0, 217, 206, 0.15);
+      border-color: #00D9CE;
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.3);
     }
 
     .energy-curve-container {
@@ -908,6 +942,32 @@
         setEditingSectionIdx(null);
       }
 
+      // ── Add section at the end ──
+      function addSection() {
+        const lastSec = sectionMarkers[sectionMarkers.length - 1];
+        const newStart = lastSec ? lastSec.startTime + lastSec.duration : 0;
+        const newDur = measuresToSeconds(8, bpm);
+        const newIdx = sectionMarkers.length;
+
+        setSectionMarkers(prev => [...prev, {
+          name: 'Nouvelle',
+          startTime: newStart,
+          duration: newDur,
+        }]);
+
+        // Add energy points for the new section
+        setEnergyPoints(prev => [...prev,
+          { id: 'ep-start-' + newIdx, time: newStart, value: 5 },
+          { id: 'ep-end-' + newIdx, time: newStart + newDur, value: 3 },
+        ]);
+
+        // Extend total duration if needed
+        const newEnd = newStart + newDur + 10;
+        if (newEnd > totalDuration) {
+          setTotalDuration(newEnd);
+        }
+      }
+
       // ── Section marker drag (move) & resize — energy points follow ──
       function handleSectionMouseDown(e, idx, mode) {
         e.stopPropagation();
@@ -1149,7 +1209,7 @@
           {/* Header */}
           <div className="header">
             <div className="header-left">
-              <span className="logo">{'\uD83D\uDDFA\uFE0F'} TrackMap</span>
+              <span className="logo">{'\uD83D\uDDFA\uFE0F'} TrackMap<span className="logo-tm">{'\u2122'}</span><span className="logo-sub">by Mao Maker</span></span>
             </div>
             <div className="header-controls">
               <div>
@@ -1262,6 +1322,19 @@
                     <div className="section-resize-handle right" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-right')}></div>
                   </div>
                 ))}
+                {/* Add section button */}
+                {(() => {
+                  const lastSec = sectionMarkers[sectionMarkers.length - 1];
+                  const btnLeft = lastSec ? (lastSec.startTime + lastSec.duration) * pxPerSecond + 4 : 0;
+                  return (
+                    <div
+                      className="btn-add-section"
+                      style={{ left: btnLeft }}
+                      onClick={addSection}
+                      title="Ajouter une section"
+                    >+</div>
+                  );
+                })()}
               </div>
 
               {/* Time ruler */}
