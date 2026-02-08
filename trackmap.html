@@ -1,0 +1,2468 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TrackMap - MAO Maker</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+  <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+    }
+    body {
+      background: #1a1a1a;
+      color: #ffffff;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+    ::-webkit-scrollbar { height: 8px; width: 8px; }
+    ::-webkit-scrollbar-track { background: #2a2a2a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #00D9CE; }
+
+    #app { height: 100vh; overflow: hidden; }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 24px;
+      background: #222;
+      border-bottom: 1px solid #333;
+    }
+    .header-left { display: flex; align-items: center; gap: 16px; }
+    .logo {
+      font-size: 24px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #00D9CE, #E91E8C);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+    .logo-tm {
+      font-size: 11px;
+      vertical-align: super;
+      -webkit-text-fill-color: #00D9CE;
+    }
+    .logo-sub {
+      font-size: 11px;
+      color: #666;
+      font-weight: 400;
+      margin-left: 8px;
+      -webkit-text-fill-color: #666;
+    }
+    .header-controls { display: flex; align-items: center; gap: 12px; }
+
+    .select-styled {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .select-styled:hover, .select-styled:focus {
+      border-color: #00D9CE;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .input-styled {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 10px;
+      padding: 8px 12px;
+      font-size: 14px;
+      width: 90px;
+      text-align: center;
+      transition: border-color 0.2s;
+    }
+    .input-styled:hover, .input-styled:focus {
+      border-color: #00D9CE;
+      outline: none;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .label { font-size: 12px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    .palette-section {
+      padding: 16px 24px;
+      background: #222;
+      border-bottom: 1px solid #333;
+    }
+    .palette-title { font-size: 12px; color: #9ca3af; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px; }
+    .palette-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .palette-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 14px;
+      border-radius: 12px;
+      cursor: grab;
+      font-size: 13px;
+      font-weight: 600;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .palette-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+    }
+    .palette-item:active { cursor: grabbing; }
+    .palette-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .timeline-container {
+      padding: 20px 24px;
+      overflow-x: auto;
+      position: relative;
+    }
+    .timeline-wrapper {
+      position: relative;
+      min-height: 400px;
+    }
+
+    .time-ruler {
+      display: flex;
+      align-items: flex-end;
+      height: 44px;
+      margin-left: 120px;
+      border-bottom: 1px solid #444;
+      position: sticky;
+      top: 28px;
+      margin-bottom: 4px;
+      z-index: 19;
+      background: #1a1a1a;
+    }
+    .time-mark {
+      position: absolute;
+      font-size: 11px;
+      color: #888;
+      transform: translateX(-50%);
+      bottom: 18px;
+    }
+    .time-mark-measures {
+      position: absolute;
+      font-size: 10px;
+      color: #E91E8C;
+      transform: translateX(-50%);
+      bottom: 4px;
+      font-weight: 600;
+    }
+    .time-tick {
+      position: absolute;
+      width: 1px;
+      background: #444;
+      bottom: 0;
+    }
+
+    .tracks-area {
+      position: relative;
+    }
+
+    .track-row {
+      display: flex;
+      align-items: center;
+      min-height: 44px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .track-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #e0e0e0;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .track-label-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .track-label-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-lane {
+      flex: 1;
+      position: relative;
+      height: 44px;
+    }
+
+    .grid-lines {
+      position: absolute;
+      top: 0;
+      left: 120px;
+      right: 0;
+      bottom: 0;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .grid-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 1px;
+      background: #2a2a2a;
+    }
+    .grid-line.major { background: #333; }
+
+    .block {
+      position: absolute;
+      height: 34px;
+      top: 5px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: grab;
+      transition: box-shadow 0.15s;
+      z-index: 3;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      user-select: none;
+      min-width: 20px;
+    }
+    .block:hover {
+      box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+    .block .block-label {
+      pointer-events: none;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    }
+
+    .resize-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 5;
+    }
+    .resize-handle.left { left: 0; }
+    .resize-handle.right { right: 0; }
+    .resize-handle:hover { background: rgba(255,255,255,0.15); border-radius: 4px; }
+
+    .section-markers {
+      position: sticky;
+      top: 0;
+      margin-left: 120px;
+      height: 28px;
+      margin-bottom: 4px;
+      z-index: 20;
+      background: #1a1a1a;
+    }
+    .section-marker {
+      position: absolute;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(0, 217, 206, 0.12);
+      color: #00D9CE;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      padding: 0 6px;
+      cursor: grab;
+      user-select: none;
+    }
+    .section-marker:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.3);
+    }
+    .section-resize-handle {
+      position: absolute;
+      top: 0;
+      width: 8px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 5;
+    }
+    .section-resize-handle.left { left: 0; }
+    .section-resize-handle.right { right: 0; }
+    .section-resize-handle:hover { background: rgba(0, 217, 206, 0.3); border-radius: 3px; }
+    .section-name-input {
+      background: transparent;
+      border: none;
+      color: #00D9CE;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      text-align: center;
+      width: 100%;
+      outline: none;
+      padding: 0;
+    }
+
+    .block.selected {
+      outline: 2px solid #fff;
+      outline-offset: 1px;
+      box-shadow: 0 0 16px rgba(255, 255, 255, 0.3);
+      z-index: 15;
+    }
+    .selection-hint {
+      font-size: 11px;
+      color: #666;
+      margin-left: 12px;
+    }
+
+    .zoom-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .zoom-slider {
+      -webkit-appearance: none;
+      width: 100px;
+      height: 4px;
+      background: #444;
+      border-radius: 2px;
+      outline: none;
+    }
+    .zoom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #00D9CE;
+      cursor: pointer;
+    }
+    .zoom-value {
+      font-size: 11px;
+      color: #888;
+      min-width: 36px;
+      text-align: center;
+    }
+    .btn-fit {
+      background: #333;
+      color: #00D9CE;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-fit:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .btn-add-section {
+      position: absolute;
+      height: 24px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      font-weight: 700;
+      border: 1px dashed rgba(0, 217, 206, 0.4);
+      background: rgba(0, 217, 206, 0.06);
+      color: #00D9CE;
+      width: 32px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-add-section:hover {
+      background: rgba(0, 217, 206, 0.15);
+      border-color: #00D9CE;
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.3);
+    }
+
+    .energy-curve-container {
+      position: relative;
+      margin-left: 120px;
+      height: 80px;
+      margin-top: 8px;
+      border-top: 1px solid #333;
+      padding-top: 4px;
+    }
+    .energy-label {
+      position: absolute;
+      left: -110px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: #9ca3af;
+      font-weight: 600;
+    }
+    .energy-canvas {
+      width: 100%;
+      height: 100%;
+    }
+    .energy-point {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #00D9CE;
+      border: 2px solid #fff;
+      cursor: grab;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      transition: box-shadow 0.15s;
+    }
+    .energy-point:hover {
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.6);
+    }
+    .energy-tooltip {
+      position: absolute;
+      background: #333;
+      color: #fff;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      pointer-events: none;
+      transform: translate(-50%, -130%);
+      white-space: nowrap;
+      z-index: 20;
+    }
+
+    .footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: #222;
+      border-top: 1px solid #333;
+      position: sticky;
+      bottom: 0;
+    }
+    .footer-info { font-size: 13px; color: #9ca3af; }
+    .footer-actions { display: flex; gap: 10px; }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 12px;
+      border: none;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00D9CE, #00b3a9);
+      color: #000;
+    }
+    .btn-primary:hover {
+      box-shadow: 0 0 16px rgba(0, 217, 206, 0.4);
+      transform: translateY(-1px);
+    }
+    .btn-secondary {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+    }
+    .btn-secondary:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 10px rgba(0, 217, 206, 0.15);
+    }
+    .btn-accent {
+      background: linear-gradient(135deg, #E91E8C, #c4177a);
+      color: #fff;
+    }
+    .btn-accent:hover {
+      box-shadow: 0 0 16px rgba(233, 30, 140, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .drop-zone-highlight {
+      background: rgba(0, 217, 206, 0.08);
+      border: 2px dashed rgba(0, 217, 206, 0.3);
+      border-radius: 12px;
+    }
+
+    .empty-timeline {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 200px;
+      color: #555;
+      font-size: 16px;
+      border: 2px dashed #333;
+      border-radius: 16px;
+      margin: 20px 0;
+    }
+
+    .track-remove-btn {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+    .track-remove-btn:hover { color: #E91E8C; }
+
+    .waveform-row {
+      display: flex;
+      align-items: center;
+      min-height: 60px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .waveform-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      color: #e0e0e0;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .waveform-canvas {
+      height: 56px;
+      position: absolute;
+      top: 2px;
+      left: 0;
+    }
+    .waveform-lane {
+      position: relative;
+      height: 60px;
+      overflow: hidden;
+    }
+
+    .audio-import-btn {
+      background: #333;
+      color: #00D9CE;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .audio-import-btn:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.2);
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .audio-offset-input {
+      background: #333;
+      color: #fff;
+      border: 1px solid #555;
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      width: 60px;
+      text-align: center;
+    }
+    .audio-offset-input:focus {
+      border-color: #00D9CE;
+      outline: none;
+    }
+    .audio-remove-btn {
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: 4px;
+    }
+    .audio-remove-btn:hover { color: #E91E8C; }
+
+    .notes-row {
+      display: flex;
+      align-items: stretch;
+      min-height: 36px;
+      border-bottom: 1px solid #2a2a2a;
+      position: relative;
+    }
+    .notes-label {
+      width: 120px;
+      min-width: 120px;
+      padding: 0 12px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #9ca3af;
+      z-index: 2;
+      background: #1a1a1a;
+    }
+    .notes-lane {
+      position: relative;
+      min-height: 36px;
+      display: flex;
+      align-items: center;
+    }
+    .note-marker {
+      position: absolute;
+      top: 2px;
+      height: calc(100% - 4px);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11px;
+      color: #ccc;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      min-width: 20px;
+    }
+    .note-marker:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.25);
+    }
+    .note-input {
+      background: #333;
+      color: #fff;
+      border: 1px solid #00D9CE;
+      border-radius: 4px;
+      padding: 4px 6px;
+      font-size: 11px;
+      width: 100%;
+      outline: none;
+    }
+    .add-note-btn {
+      position: absolute;
+      right: -30px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: 1px dashed #555;
+      color: #555;
+      border-radius: 4px;
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .add-note-btn:hover { border-color: #00D9CE; color: #00D9CE; }
+
+    .playhead-line {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background: #ff4444;
+      z-index: 25;
+      pointer-events: none;
+    }
+    .playhead-head {
+      position: absolute;
+      top: -6px;
+      left: -5px;
+      width: 0;
+      height: 0;
+      border-left: 6px solid transparent;
+      border-right: 6px solid transparent;
+      border-top: 8px solid #ff4444;
+    }
+
+    .play-btn {
+      background: #333;
+      border: 1px solid #555;
+      color: #00D9CE;
+      border-radius: 8px;
+      padding: 4px 10px;
+      font-size: 15px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .play-btn:hover {
+      border-color: #00D9CE;
+      box-shadow: 0 0 8px rgba(0, 217, 206, 0.3);
+    }
+    .play-btn.playing {
+      color: #ff4444;
+      border-color: #ff4444;
+    }
+
+    .section-delete-btn {
+      position: absolute;
+      top: 1px;
+      right: 2px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.3);
+      cursor: pointer;
+      font-size: 11px;
+      line-height: 1;
+      padding: 0 2px;
+      z-index: 5;
+    }
+    .section-delete-btn:hover { color: #E91E8C; }
+
+    .note-resize-handle {
+      position: absolute;
+      top: 0;
+      width: 6px;
+      height: 100%;
+      cursor: ew-resize;
+      z-index: 3;
+    }
+    .note-resize-handle.left { left: 0; }
+    .note-resize-handle.right { right: 0; }
+    .note-resize-handle:hover { background: rgba(0, 217, 206, 0.3); }
+
+    .detected-bpm {
+      font-size: 10px;
+      color: #E91E8C;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <script type="text/babel">
+    const { useState, useRef, useEffect, useCallback, useMemo } = React;
+
+    // ── Data ──────────────────────────────────────────
+    const ELEMENTS = [
+      { name: 'Kick', color: '#dc2626', emoji: '\uD83D\uDD34' },
+      { name: 'Drums', color: '#ea580c', emoji: '\uD83D\uDFE0' },
+      { name: 'Hi-Hats', color: '#eab308', emoji: '\uD83D\uDFE1' },
+      { name: 'Bass', color: '#9333ea', emoji: '\uD83D\uDFE3' },
+      { name: 'Sub', color: '#6b21a8', emoji: '\uD83D\uDFEA' },
+      { name: 'Chords', color: '#3b82f6', emoji: '\uD83D\uDD35' },
+      { name: 'Mélodie', color: '#10b981', emoji: '\uD83D\uDFE2' },
+      { name: 'Pad', color: '#06b6d4', emoji: '\uD83E\uDE75' },
+      { name: 'Lead', color: '#fbbf24', emoji: '\u26A1' },
+      { name: 'FX', color: '#9ca3af', emoji: '\u26AA' },
+      { name: 'Vocals', color: '#ec4899', emoji: '\uD83E\uDE77' },
+      { name: 'Ambiance', color: '#4b5563', emoji: '\uD83C\uDF2B\uFE0F' },
+      { name: 'Arpège', color: '#1d4ed8', emoji: '\uD83D\uDFE6' },
+      { name: 'Percs', color: '#92400e', emoji: '\uD83D\uDFE4' },
+    ];
+
+    function measuresToSeconds(measures, bpm) {
+      return measures * 4 * (60 / bpm);
+    }
+
+    function secondsToTimeStr(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${sec.toString().padStart(2, '0')}`;
+    }
+
+    function secondsToMeasures(seconds, bpm) {
+      return seconds / (4 * (60 / bpm));
+    }
+
+    // ── Templates ────────────────────────────────────
+    function buildTemplate(name, bpm, sections) {
+      // sections: [{name, startMeasure, measures, elements, energy}]
+      const blocks = [];
+      const energyPoints = [];
+      let id = 1;
+      const tracksUsed = new Set();
+
+      sections.forEach((sec, idx) => {
+        const startSec = measuresToSeconds(sec.startMeasure, bpm);
+        const durSec = measuresToSeconds(sec.measures, bpm);
+        const endSec = startSec + durSec;
+        (sec.elements || []).forEach(elName => {
+          const el = ELEMENTS.find(e => e.name === elName);
+          if (!el) return;
+          tracksUsed.add(elName);
+          blocks.push({
+            id: 'b' + (id++),
+            element: elName,
+            color: el.color,
+            startTime: startSec,
+            duration: durSec,
+            track: elName,
+          });
+        });
+        // energy point at START of section
+        energyPoints.push({
+          id: 'ep-start-' + idx,
+          time: startSec,
+          value: sec.energy || 5,
+        });
+        // energy point at END of section (use next section's energy or fade down)
+        const nextSec = sections[idx + 1];
+        const endValue = nextSec ? nextSec.energy || 5 : Math.max(1, Math.round((sec.energy || 5) * 0.4));
+        energyPoints.push({
+          id: 'ep-end-' + idx,
+          time: endSec,
+          value: endValue,
+        });
+      });
+
+      const lastSec = sections[sections.length - 1];
+      const endTime = measuresToSeconds(lastSec.startMeasure + lastSec.measures, bpm);
+
+      const sectionMarkers = sections.map(s => ({
+        name: s.name,
+        startTime: measuresToSeconds(s.startMeasure, bpm),
+        duration: measuresToSeconds(s.measures, bpm),
+      }));
+
+      return { blocks, energyPoints, tracks: [...tracksUsed], totalDuration: endTime, sectionMarkers };
+    }
+
+    const TEMPLATES = {
+      'custom': () => buildTemplate('Custom', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: [], energy: 3 },
+        { name: 'Section A', startMeasure: 4, measures: 4, elements: [], energy: 5 },
+        { name: 'Section B', startMeasure: 8, measures: 8, elements: [], energy: 6 },
+        { name: 'Section C', startMeasure: 16, measures: 4, elements: [], energy: 7 },
+        { name: 'Section D', startMeasure: 20, measures: 8, elements: [], energy: 8 },
+        { name: 'Section E', startMeasure: 28, measures: 8, elements: [], energy: 9 },
+        { name: 'Section F', startMeasure: 36, measures: 4, elements: [], energy: 7 },
+        { name: 'Section G', startMeasure: 40, measures: 8, elements: [], energy: 5 },
+        { name: 'Section H', startMeasure: 48, measures: 8, elements: [], energy: 8 },
+        { name: 'Section I', startMeasure: 56, measures: 8, elements: [], energy: 9 },
+        { name: 'Section J', startMeasure: 64, measures: 8, elements: [], energy: 6 },
+        { name: 'Outro', startMeasure: 72, measures: 4, elements: [], energy: 3 },
+      ]),
+      'disco-pop': () => buildTemplate('Disco-Pop', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Bass', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 12, measures: 4, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Drums', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 32, measures: 4, elements: ['Kick', 'Bass', 'Drums', 'Hi-Hats', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 36, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Pont', startMeasure: 44, measures: 8, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Build', startMeasure: 52, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'FX', 'Vocals'], energy: 8 },
+        { name: 'Refrain final', startMeasure: 56, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Bass', 'Chords', 'Pad', 'Ambiance'], energy: 3 },
+      ]),
+      'afro-house': () => buildTemplate('Afro House', 122, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Percs', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 8, measures: 8, elements: ['Percs', 'Bass', 'Hi-Hats', 'Ambiance'], energy: 5 },
+        { name: 'Drop 1', startMeasure: 16, measures: 16, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords'], energy: 8 },
+        { name: 'Breakdown', startMeasure: 32, measures: 8, elements: ['Mélodie', 'Pad', 'Percs', 'Vocals'], energy: 4 },
+        { name: 'Build 2', startMeasure: 40, measures: 8, elements: ['Percs', 'Bass', 'Drums', 'FX'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 48, measures: 16, elements: ['Kick', 'Drums', 'Percs', 'Bass', 'Hi-Hats', 'Vocals', 'Chords', 'Mélodie'], energy: 10 },
+        { name: 'Outro', startMeasure: 64, measures: 8, elements: ['Percs', 'Ambiance', 'Pad'], energy: 3 },
+      ]),
+      'tech-house': () => buildTemplate('Tech House', 128, [
+        { name: 'Intro', startMeasure: 0, measures: 16, elements: ['Kick', 'Hi-Hats', 'FX'], energy: 4 },
+        { name: 'Build', startMeasure: 16, measures: 8, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 24, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Break', startMeasure: 40, measures: 8, elements: ['Pad', 'FX', 'Vocals'], energy: 3 },
+        { name: 'Build 2', startMeasure: 48, measures: 4, elements: ['Kick', 'Hi-Hats', 'Bass', 'FX', 'Drums'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 52, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Kick', 'Hi-Hats', 'Ambiance'], energy: 3 },
+      ]),
+      'lofi-hiphop': () => buildTemplate('Lo-fi Hip-Hop', 85, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Ambiance', 'FX'], energy: 2 },
+        { name: 'Loop A', startMeasure: 4, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance'], energy: 5 },
+        { name: 'Variation', startMeasure: 16, measures: 8, elements: ['Drums', 'Hi-Hats', 'Chords', 'Pad', 'Bass'], energy: 4 },
+        { name: 'Loop B', startMeasure: 24, measures: 12, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass', 'Ambiance', 'Vocals'], energy: 6 },
+        { name: 'Bridge', startMeasure: 36, measures: 4, elements: ['Chords', 'Ambiance', 'FX'], energy: 3 },
+        { name: "Loop A'", startMeasure: 40, measures: 8, elements: ['Drums', 'Hi-Hats', 'Chords', 'Mélodie', 'Bass'], energy: 5 },
+        { name: 'Outro', startMeasure: 48, measures: 4, elements: ['Chords', 'Ambiance'], energy: 2 },
+      ]),
+      'trap': () => buildTemplate('Trap', 150, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 24, measures: 4, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'FX', 'Vocals'], energy: 7 },
+        { name: 'Refrain', startMeasure: 28, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 40, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Pad'], energy: 5 },
+        { name: 'Bridge', startMeasure: 56, measures: 8, elements: ['Sub', 'Pad', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 64, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Lead', 'Chords', 'Vocals', 'FX'], energy: 10 },
+        { name: 'Outro', startMeasure: 80, measures: 8, elements: ['Sub', 'Hi-Hats', 'Ambiance'], energy: 3 },
+      ]),
+      'drill': () => buildTemplate('Drill', 142, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Ambiance', 'Sub', 'FX'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 8, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals'], energy: 6 },
+        { name: 'Refrain', startMeasure: 24, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Chords'], energy: 8 },
+        { name: 'Couplet 2', startMeasure: 32, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Mélodie'], energy: 6 },
+        { name: 'Pont', startMeasure: 48, measures: 8, elements: ['Sub', 'Vocals', 'Pad'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 56, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Sub', 'Vocals', 'Chords', 'FX'], energy: 9 },
+        { name: 'Outro', startMeasure: 68, measures: 4, elements: ['Sub', 'Ambiance'], energy: 2 },
+      ]),
+      'boom-bap': () => buildTemplate('Boom Bap', 90, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Chords', 'Drums', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Refrain', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 8 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals'], energy: 6 },
+        { name: 'Pont', startMeasure: 36, measures: 4, elements: ['Chords', 'Bass', 'Vocals'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 40, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Outro', startMeasure: 48, measures: 4, elements: ['Chords', 'Drums', 'Ambiance'], energy: 2 },
+      ]),
+      'pop-radio': () => buildTemplate('Pop Radio', 120, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Chords', 'Vocals', 'Pad'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Pré-refrain', startMeasure: 12, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 1', startMeasure: 16, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 24, measures: 8, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'Hi-Hats'], energy: 5 },
+        { name: 'Pré-refrain 2', startMeasure: 32, measures: 4, elements: ['Kick', 'Drums', 'Bass', 'Chords', 'Vocals', 'FX'], energy: 7 },
+        { name: 'Refrain 2', startMeasure: 36, measures: 8, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead'], energy: 9 },
+        { name: 'Pont', startMeasure: 44, measures: 8, elements: ['Vocals', 'Chords', 'Pad'], energy: 4 },
+        { name: 'Refrain 3', startMeasure: 52, measures: 12, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Vocals', 'Lead', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 64, measures: 4, elements: ['Chords', 'Pad', 'Vocals'], energy: 3 },
+      ]),
+      'future-bass': () => buildTemplate('Future Bass', 135, [
+        { name: 'Intro', startMeasure: 0, measures: 8, elements: ['Pad', 'Vocals', 'Ambiance'], energy: 3 },
+        { name: 'Build 1', startMeasure: 8, measures: 8, elements: ['Pad', 'Vocals', 'Drums', 'FX', 'Chords'], energy: 6 },
+        { name: 'Drop 1', startMeasure: 16, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Breakdown', startMeasure: 32, measures: 12, elements: ['Vocals', 'Chords', 'Pad', 'Ambiance'], energy: 4 },
+        { name: 'Build 2', startMeasure: 44, measures: 8, elements: ['Pad', 'Drums', 'FX', 'Chords', 'Vocals', 'Bass'], energy: 7 },
+        { name: 'Drop 2', startMeasure: 52, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals', 'Arpège'], energy: 10 },
+        { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
+      ]),
+    };
+
+    const STYLE_OPTIONS = [
+      { value: 'custom', label: 'Custom (libre)', bpm: 120 },
+      { value: 'disco-pop', label: 'Disco-Pop / Nu-Disco', bpm: 120 },
+      { value: 'afro-house', label: 'Afro House', bpm: 122 },
+      { value: 'tech-house', label: 'Tech House', bpm: 128 },
+      { value: 'lofi-hiphop', label: 'Lo-fi Hip-Hop', bpm: 85 },
+      { value: 'trap', label: 'Trap', bpm: 150 },
+      { value: 'drill', label: 'Drill', bpm: 142 },
+      { value: 'boom-bap', label: 'Hip-Hop Boom Bap', bpm: 90 },
+      { value: 'pop-radio', label: 'Pop Radio Ready', bpm: 120 },
+      { value: 'future-bass', label: 'Future Bass / EDM', bpm: 135 },
+    ];
+
+    const DEFAULT_PX_PER_SECOND = 12;
+
+    // ── App ──────────────────────────────────────────
+    function App() {
+      const [style, setStyle] = useState('disco-pop');
+      const [bpm, setBpm] = useState(120);
+      const [blocks, setBlocks] = useState([]);
+      const [tracks, setTracks] = useState([]);
+      const [totalDuration, setTotalDuration] = useState(300);
+      const [sectionMarkers, setSectionMarkers] = useState([]);
+      const [energyPoints, setEnergyPoints] = useState([]);
+      const [dragInfo, setDragInfo] = useState(null);
+      const [hoveredEnergy, setHoveredEnergy] = useState(null);
+      const timelineRef = useRef(null);
+      const energyCanvasRef = useRef(null);
+      const [dropTarget, setDropTarget] = useState(false);
+      const [selectedBlockId, setSelectedBlockId] = useState(null);
+      const [editingSectionIdx, setEditingSectionIdx] = useState(null);
+      const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
+      const [elements, setElements] = useState(ELEMENTS);
+      const [addingElement, setAddingElement] = useState(false);
+      const [newElName, setNewElName] = useState('');
+      const [newElColor, setNewElColor] = useState('#00D9CE');
+      const [audioBuffer, setAudioBuffer] = useState(null);
+      const [audioName, setAudioName] = useState('');
+      const [audioOffset, setAudioOffset] = useState(0);
+      const [waveformData, setWaveformData] = useState(null);
+      const waveformCanvasRef = useRef(null);
+      const audioInputRef = useRef(null);
+      const [notes, setNotes] = useState([]);
+      const [editingNoteId, setEditingNoteId] = useState(null);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [playheadTime, setPlayheadTime] = useState(0);
+      const audioCtxRef = useRef(null);
+      const audioSourceRef = useRef(null);
+      const playStartRef = useRef(0);
+      const playOffsetRef = useRef(0);
+      const animFrameRef = useRef(null);
+      const [detectedBpm, setDetectedBpm] = useState(null);
+
+      // ── Audio import & waveform ──
+      function detectBPM(buffer) {
+        const channelData = buffer.getChannelData(0);
+        const sampleRate = buffer.sampleRate;
+        // Downsample for speed
+        const downsampleFactor = 4;
+        const len = Math.floor(channelData.length / downsampleFactor);
+        const data = new Float32Array(len);
+        for (let i = 0; i < len; i++) {
+          data[i] = Math.abs(channelData[i * downsampleFactor]);
+        }
+        const effRate = sampleRate / downsampleFactor;
+        // Low-pass via moving average
+        const windowSize = Math.floor(effRate / 20);
+        const envelope = new Float32Array(len);
+        let sum = 0;
+        for (let i = 0; i < len; i++) {
+          sum += data[i];
+          if (i >= windowSize) sum -= data[i - windowSize];
+          envelope[i] = sum / Math.min(i + 1, windowSize);
+        }
+        // Onset detection - difference
+        const diff = new Float32Array(len);
+        for (let i = 1; i < len; i++) {
+          diff[i] = Math.max(0, envelope[i] - envelope[i - 1]);
+        }
+        // Autocorrelation on onset signal for BPM range 60-200
+        const minLag = Math.floor(effRate * 60 / 200);
+        const maxLag = Math.floor(effRate * 60 / 60);
+        const analysisLen = Math.min(diff.length, Math.floor(effRate * 20)); // 20 sec
+        let bestLag = minLag;
+        let bestCorr = -Infinity;
+        for (let lag = minLag; lag <= maxLag; lag++) {
+          let corr = 0;
+          const end = Math.min(analysisLen, diff.length - lag);
+          for (let i = 0; i < end; i++) {
+            corr += diff[i] * diff[i + lag];
+          }
+          if (corr > bestCorr) {
+            bestCorr = corr;
+            bestLag = lag;
+          }
+        }
+        const detBpm = Math.round(effRate * 60 / bestLag);
+        return detBpm;
+      }
+
+      function analyzeAudioStructure(buffer, audioBpm) {
+        const channelData = buffer.getChannelData(0);
+        const sampleRate = buffer.sampleRate;
+        const duration = buffer.duration;
+        const useBpm = audioBpm || 120;
+
+        // Compute RMS energy per 4-measure chunk (snapped to grid)
+        const secPer4Measures = measuresToSeconds(4, useBpm);
+        const numChunks = Math.max(1, Math.floor(duration / secPer4Measures));
+        const rmsValues = [];
+        for (let c = 0; c < numChunks; c++) {
+          const startSample = Math.floor(c * secPer4Measures * sampleRate);
+          const endSample = Math.min(Math.floor((c + 1) * secPer4Measures * sampleRate), channelData.length);
+          let sumSq = 0;
+          const count = endSample - startSample;
+          for (let s = startSample; s < endSample; s++) {
+            sumSq += channelData[s] * channelData[s];
+          }
+          rmsValues.push(Math.sqrt(sumSq / count));
+        }
+
+        // Normalize to 1-10
+        const maxRms = Math.max(...rmsValues, 0.0001);
+        const minRms = Math.min(...rmsValues);
+        const range = maxRms - minRms || 1;
+        const energyLevels = rmsValues.map(r => Math.round(1 + ((r - minRms) / range) * 9));
+
+        // Group consecutive chunks with similar energy into sections
+        // A new section starts when energy changes by >= 2 levels
+        const sections = [];
+        let secStart = 0;
+        let secEnergies = [energyLevels[0]];
+        for (let i = 1; i < energyLevels.length; i++) {
+          const avgEnergy = Math.round(secEnergies.reduce((a, b) => a + b, 0) / secEnergies.length);
+          const diff = Math.abs(energyLevels[i] - avgEnergy);
+          // Start new section if energy change is significant or section is already 16+ measures long
+          if (diff >= 2 || secEnergies.length >= 4) {
+            sections.push({
+              startChunk: secStart,
+              endChunk: i,
+              energy: avgEnergy,
+            });
+            secStart = i;
+            secEnergies = [energyLevels[i]];
+          } else {
+            secEnergies.push(energyLevels[i]);
+          }
+        }
+        // Push last section
+        if (secStart < energyLevels.length) {
+          const avgEnergy = Math.round(secEnergies.reduce((a, b) => a + b, 0) / secEnergies.length);
+          sections.push({ startChunk: secStart, endChunk: energyLevels.length, energy: avgEnergy });
+        }
+
+        // Label sections intelligently based on energy and position
+        const maxEnergy = Math.max(...sections.map(s => s.energy));
+        const labeledSections = [];
+        let coupletCount = 0;
+        let refrainCount = 0;
+        sections.forEach((sec, i) => {
+          const ratio = sec.energy / maxEnergy;
+          const isFirst = i === 0;
+          const isLast = i === sections.length - 1;
+          let name;
+          if (isFirst && ratio < 0.6) {
+            name = 'Intro';
+          } else if (isLast && ratio < 0.6) {
+            name = 'Outro';
+          } else if (ratio >= 0.85) {
+            refrainCount++;
+            name = refrainCount === 1 ? 'Refrain' : 'Refrain ' + refrainCount;
+          } else if (ratio >= 0.65) {
+            // Check if energy is rising (build) or high (pre-refrain)
+            const prev = i > 0 ? sections[i - 1].energy : 0;
+            const next = i < sections.length - 1 ? sections[i + 1].energy : 0;
+            if (next > sec.energy && next / maxEnergy >= 0.85) {
+              name = 'Build';
+            } else if (prev > sec.energy) {
+              name = 'Breakdown';
+            } else {
+              coupletCount++;
+              name = coupletCount === 1 ? 'Couplet' : 'Couplet ' + coupletCount;
+            }
+          } else if (ratio >= 0.4) {
+            const prev = i > 0 ? sections[i - 1].energy : 0;
+            const next = i < sections.length - 1 ? sections[i + 1].energy : 0;
+            if (prev > sec.energy && next > sec.energy) {
+              name = 'Pont';
+            } else {
+              coupletCount++;
+              name = coupletCount === 1 ? 'Couplet' : 'Couplet ' + coupletCount;
+            }
+          } else {
+            if (isFirst) name = 'Intro';
+            else if (isLast) name = 'Outro';
+            else name = 'Break';
+          }
+          labeledSections.push({ ...sec, name });
+        });
+
+        // Convert to sectionMarkers and energyPoints
+        const newMarkers = [];
+        const newEnergyPoints = [];
+        labeledSections.forEach((sec, i) => {
+          const startTime = sec.startChunk * secPer4Measures;
+          const dur = (sec.endChunk - sec.startChunk) * secPer4Measures;
+          newMarkers.push({ name: sec.name, startTime, duration: dur });
+          newEnergyPoints.push({ id: 'ep-start-' + i, time: startTime, value: sec.energy });
+          newEnergyPoints.push({ id: 'ep-end-' + i, time: startTime + dur, value: sec.energy });
+        });
+
+        // Detect instruments per section via spectral analysis
+        const fftSize = 4096;
+        const detectedTracks = new Set();
+        const detectedBlocks = [];
+
+        labeledSections.forEach((sec, i) => {
+          const startSample = Math.floor(sec.startChunk * secPer4Measures * sampleRate);
+          const endSample = Math.min(Math.floor(sec.endChunk * secPer4Measures * sampleRate), channelData.length);
+          const secDuration = (sec.endChunk - sec.startChunk) * secPer4Measures;
+          const secStartTime = sec.startChunk * secPer4Measures;
+
+          // Compute average spectral energy in frequency bands
+          const numFrames = Math.min(10, Math.floor((endSample - startSample) / fftSize));
+          if (numFrames === 0) return;
+          const bands = { sub: 0, low: 0, lowMid: 0, mid: 0, highMid: 0, high: 0, presence: 0 };
+
+          for (let f = 0; f < numFrames; f++) {
+            const frameOffset = startSample + Math.floor(f * (endSample - startSample - fftSize) / numFrames);
+            const frameLen = Math.min(fftSize, endSample - frameOffset);
+            if (frameLen < 256) continue;
+            const frame = new Float32Array(frameLen);
+            for (let s = 0; s < frameLen; s++) {
+              frame[s] = channelData[frameOffset + s] * (0.5 - 0.5 * Math.cos(2 * Math.PI * s / frameLen));
+            }
+            // Compute energy per band using simplified RMS in frequency ranges
+            // Map frequency to sample index: idx = freq * frameLen / sampleRate
+            const freqToIdx = (freq) => Math.round(freq * frameLen / sampleRate);
+            const bandRanges = {
+              sub: [20, 60], low: [60, 200], lowMid: [200, 500],
+              mid: [500, 2000], highMid: [2000, 6000], high: [6000, 12000], presence: [2000, 5000]
+            };
+            // Simple energy estimation: RMS of samples filtered by band approximation
+            // Use time-domain energy in band via stride sampling
+            Object.keys(bandRanges).forEach(band => {
+              const [fLow, fHigh] = bandRanges[band];
+              const period = sampleRate / ((fLow + fHigh) / 2);
+              const stride = Math.max(1, Math.floor(period));
+              let bandE = 0;
+              let count = 0;
+              for (let s = 0; s < frameLen; s += stride) {
+                bandE += frame[s] * frame[s];
+                count++;
+              }
+              bands[band] += (count > 0 ? bandE / count : 0);
+            });
+          }
+          // Average
+          Object.keys(bands).forEach(k => bands[k] /= numFrames);
+
+          // Normalize bands relative to each other
+          const allBands = Object.values(bands);
+          const maxBand = Math.max(...allBands, 0.0001);
+          const norm = {};
+          Object.keys(bands).forEach(k => norm[k] = bands[k] / maxBand);
+
+          // Map frequency bands to instruments
+          const secInstruments = [];
+          // Kick: strong sub + low
+          if (norm.sub > 0.3 || norm.low > 0.4) {
+            secInstruments.push('Kick');
+          }
+          // Bass / Sub bass
+          if (norm.sub > 0.5) {
+            secInstruments.push('Bass');
+          }
+          // Hi-Hats: high frequency content
+          if (norm.high > 0.2 || norm.highMid > 0.35) {
+            secInstruments.push('Hi-Hats');
+          }
+          // Chords: mid-range presence
+          if (norm.mid > 0.4 && norm.lowMid > 0.3) {
+            secInstruments.push('Chords');
+          }
+          // Vocals: presence band (2-5kHz) prominent
+          if (norm.presence > 0.45 && norm.mid > 0.35) {
+            secInstruments.push('Vocals');
+          }
+          // Lead: high-mid prominent
+          if (norm.highMid > 0.4 && norm.mid > 0.3 && !secInstruments.includes('Vocals')) {
+            secInstruments.push('Lead');
+          }
+          // Drums: transient energy in low-mid
+          if (norm.lowMid > 0.35 && (norm.low > 0.3 || norm.highMid > 0.25)) {
+            if (!secInstruments.includes('Kick')) secInstruments.push('Drums');
+          }
+
+          // Create blocks for detected instruments
+          secInstruments.forEach(instName => {
+            const el = ELEMENTS.find(e => e.name === instName);
+            if (!el) return;
+            detectedTracks.add(instName);
+            detectedBlocks.push({
+              id: 'b' + Date.now() + '-' + i + '-' + instName,
+              element: instName,
+              color: el.color,
+              startTime: secStartTime,
+              duration: secDuration,
+              track: instName,
+            });
+          });
+        });
+
+        return {
+          markers: newMarkers,
+          energyPoints: newEnergyPoints,
+          tracks: [...detectedTracks],
+          blocks: detectedBlocks,
+        };
+      }
+
+      function handleAudioImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        // Reset arrangement completely
+        stopPlayback();
+        setBlocks([]);
+        setTracks([]);
+        setSectionMarkers([]);
+        setEnergyPoints([]);
+        setNotes([]);
+        setSelectedBlockId(null);
+        setPlayheadTime(0);
+        setAudioName(file.name);
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          audioCtx.decodeAudioData(evt.target.result.slice(0), function(buffer) {
+            setAudioBuffer(buffer);
+            setTotalDuration(buffer.duration + 10);
+            // Compute waveform peaks
+            const channelData = buffer.getChannelData(0);
+            const numPeaks = 2000;
+            const samplesPerPeak = Math.floor(channelData.length / numPeaks);
+            const peaks = [];
+            for (let i = 0; i < numPeaks; i++) {
+              let max = 0;
+              const start = i * samplesPerPeak;
+              for (let j = start; j < start + samplesPerPeak && j < channelData.length; j++) {
+                const abs = Math.abs(channelData[j]);
+                if (abs > max) max = abs;
+              }
+              peaks.push(max);
+            }
+            setWaveformData({ peaks, duration: buffer.duration });
+            // BPM detection
+            let audioBpm = null;
+            try {
+              let detBpm = detectBPM(buffer);
+              if (detBpm >= 60 && detBpm <= 200) {
+                // Double if below 75 (likely half-time detection)
+                if (detBpm < 75) detBpm = detBpm * 2;
+                setDetectedBpm(detBpm);
+                setBpm(detBpm);
+                audioBpm = detBpm;
+              }
+            } catch(err) {}
+            // Auto-analyze structure: sections, energy, instruments
+            try {
+              const analysis = analyzeAudioStructure(buffer, audioBpm);
+              setSectionMarkers(analysis.markers);
+              setEnergyPoints(analysis.energyPoints);
+              if (analysis.tracks && analysis.tracks.length > 0) {
+                setTracks(analysis.tracks);
+                setBlocks(analysis.blocks);
+              }
+            } catch(err) {
+              console.warn('Analyse audio échouée:', err);
+            }
+            audioCtx.close();
+          }, function(err) {
+            alert('Erreur de décodage audio : ' + err);
+          });
+        };
+        reader.readAsArrayBuffer(file);
+        e.target.value = '';
+      }
+
+      // ── Audio playback ──
+      function togglePlay() {
+        if (!audioBuffer) return;
+        if (isPlaying) {
+          stopPlayback();
+        } else {
+          startPlayback(playheadTime);
+        }
+      }
+
+      function startPlayback(fromTime) {
+        if (!audioBuffer) return;
+        stopPlayback();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        audioCtxRef.current = ctx;
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        const audioTime = Math.max(0, fromTime - audioOffset);
+        const audioEnd = audioBuffer.duration;
+        if (audioTime >= audioEnd) return;
+        source.start(0, audioTime);
+        audioSourceRef.current = source;
+        playStartRef.current = ctx.currentTime;
+        playOffsetRef.current = fromTime;
+        setIsPlaying(true);
+        source.onended = () => {
+          setIsPlaying(false);
+          cancelAnimationFrame(animFrameRef.current);
+        };
+        function updatePlayhead() {
+          if (!audioCtxRef.current) return;
+          const elapsed = audioCtxRef.current.currentTime - playStartRef.current;
+          setPlayheadTime(playOffsetRef.current + elapsed);
+          animFrameRef.current = requestAnimationFrame(updatePlayhead);
+        }
+        updatePlayhead();
+      }
+
+      function stopPlayback() {
+        if (audioSourceRef.current) {
+          try { audioSourceRef.current.stop(); } catch(e) {}
+          audioSourceRef.current = null;
+        }
+        if (audioCtxRef.current) {
+          try { audioCtxRef.current.close(); } catch(e) {}
+          audioCtxRef.current = null;
+        }
+        cancelAnimationFrame(animFrameRef.current);
+        setIsPlaying(false);
+      }
+
+      function seekAudio(e) {
+        if (!waveformData) return;
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const time = x / pxPerSecond;
+        setPlayheadTime(Math.max(0, time));
+        if (isPlaying) {
+          startPlayback(Math.max(0, time));
+        }
+      }
+
+      // Cleanup on unmount
+      useEffect(() => {
+        return () => { stopPlayback(); };
+      }, []);
+
+      function removeAudio() {
+        stopPlayback();
+        setAudioBuffer(null);
+        setAudioName('');
+        setWaveformData(null);
+        setAudioOffset(0);
+        setDetectedBpm(null);
+        setPlayheadTime(0);
+      }
+
+      // Draw waveform
+      useEffect(() => {
+        if (!waveformData || !waveformCanvasRef.current) return;
+        const canvas = waveformCanvasRef.current;
+        const ctx = canvas.getContext('2d');
+        const w = totalWidth;
+        const h = 56;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+
+        const { peaks, duration } = waveformData;
+        const offsetPx = audioOffset * pxPerSecond;
+        const audioPxWidth = duration * pxPerSecond;
+
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.6)');
+        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.6)');
+        ctx.fillStyle = gradient;
+
+        const barW = Math.max(1, audioPxWidth / peaks.length);
+        peaks.forEach((peak, i) => {
+          const x = offsetPx + (i / peaks.length) * audioPxWidth;
+          if (x < 0 || x > w) return;
+          const barH = peak * (h - 4);
+          ctx.fillRect(x, (h - barH) / 2, Math.max(1, barW - 0.5), barH);
+        });
+        // Draw playhead
+        if (playheadTime > 0) {
+          const phX = playheadTime * pxPerSecond;
+          ctx.strokeStyle = '#ff4444';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(phX, 0);
+          ctx.lineTo(phX, h);
+          ctx.stroke();
+        }
+      }, [waveformData, totalWidth, pxPerSecond, audioOffset, playheadTime]);
+
+      // ── Notes ──
+      function addNote() {
+        const lastNote = notes[notes.length - 1];
+        const startTime = lastNote ? lastNote.startTime + lastNote.duration : 0;
+        const dur = measuresToSeconds(8, bpm);
+        setNotes(prev => [...prev, {
+          id: 'note-' + Date.now(),
+          startTime,
+          duration: dur,
+          text: '',
+        }]);
+      }
+
+      function updateNoteText(id, text) {
+        setNotes(prev => prev.map(n => n.id === id ? { ...n, text } : n));
+      }
+
+      function deleteNote(id) {
+        setNotes(prev => prev.filter(n => n.id !== id));
+        setEditingNoteId(null);
+      }
+
+      function handleNoteResize(e, noteId, side) {
+        e.stopPropagation();
+        e.preventDefault();
+        const startX = e.clientX;
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        const origStart = note.startTime;
+        const origDur = note.duration;
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          setNotes(prev => prev.map(n => {
+            if (n.id !== noteId) return n;
+            if (side === 'right') {
+              return { ...n, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+            } else {
+              const newStart = Math.max(0, origStart + dt);
+              const newDur = origDur - (newStart - origStart);
+              if (newDur < measuresToSeconds(1, bpm)) return n;
+              return { ...n, startTime: newStart, duration: newDur };
+            }
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      function handleNoteMove(e, noteId) {
+        if (e.target.closest('.note-resize-handle') || e.target.closest('.note-input')) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const startX = e.clientX;
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        const origStart = note.startTime;
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          const newStart = Math.max(0, origStart + dt);
+          setNotes(prev => prev.map(n =>
+            n.id === noteId ? { ...n, startTime: newStart } : n
+          ));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      function fitToScreen() {
+        const container = timelineRef.current;
+        if (!container) return;
+        const availableWidth = container.clientWidth - 150;
+        if (totalDuration > 0) {
+          setPxPerSecond(Math.max(1, Math.min(30, availableWidth / totalDuration)));
+        }
+      }
+
+      function duplicateBlock(blockId) {
+        const block = blocks.find(b => b.id === blockId);
+        if (!block) return;
+        const newBlock = {
+          ...block,
+          id: 'b' + Date.now(),
+          startTime: block.startTime + block.duration,
+        };
+        setBlocks(prev => [...prev, newBlock]);
+        setSelectedBlockId(newBlock.id);
+        return newBlock.id;
+      }
+
+      // Keyboard: Delete/Backspace to remove, Cmd+D to duplicate
+      useEffect(() => {
+        function handleKeyDown(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId) {
+            e.preventDefault();
+            setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
+            setSelectedBlockId(null);
+          }
+          if (e.key === 'd' && (e.metaKey || e.ctrlKey) && selectedBlockId) {
+            e.preventDefault();
+            duplicateBlock(selectedBlockId);
+          }
+          if (e.key === 'Escape') {
+            setSelectedBlockId(null);
+            setEditingSectionIdx(null);
+          }
+        }
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+      }, [selectedBlockId, blocks]);
+
+      // Deselect block when clicking on empty area
+      function handleTimelineClick(e) {
+        if (e.target.closest('.block') || e.target.closest('.section-marker')) return;
+        setSelectedBlockId(null);
+      }
+
+      // Load template
+      useEffect(() => {
+        loadTemplate(style);
+      }, []);
+
+      function loadTemplate(styleName) {
+        const opt = STYLE_OPTIONS.find(s => s.value === styleName);
+        if (!opt) return;
+        const template = TEMPLATES[styleName]();
+        setBpm(opt.bpm);
+        setBlocks(template.blocks);
+        setTracks(template.tracks);
+        setTotalDuration(template.totalDuration + 10);
+        setSectionMarkers(template.sectionMarkers);
+        setEnergyPoints(template.energyPoints);
+      }
+
+      function handleStyleChange(e) {
+        const v = e.target.value;
+        setStyle(v);
+        loadTemplate(v);
+      }
+
+      // ── Timeline drawing ──
+      const totalWidth = totalDuration * pxPerSecond;
+
+      // Time ruler marks — every 4 measures
+      const timeMarks = useMemo(() => {
+        const marks = [];
+        const secPer4Mes = measuresToSeconds(4, bpm);
+        for (let t = 0; t <= totalDuration; t += secPer4Mes) {
+          marks.push(t);
+        }
+        return marks;
+      }, [totalDuration, bpm]);
+
+      // Grid lines every 4 measures
+      const gridLines = useMemo(() => {
+        const lines = [];
+        const secPer4Measures = measuresToSeconds(4, bpm);
+        for (let t = 0; t <= totalDuration; t += secPer4Measures) {
+          const isMajor = Math.round(secondsToMeasures(t, bpm)) % 16 === 0;
+          lines.push({ time: t, major: isMajor });
+        }
+        return lines;
+      }, [totalDuration, bpm]);
+
+      // ── Drag from palette ──
+      function handlePaletteDragStart(e, element) {
+        e.dataTransfer.setData('element', JSON.stringify(element));
+        e.dataTransfer.effectAllowed = 'copy';
+      }
+
+      function handleTimelineDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+        setDropTarget(true);
+      }
+      function handleTimelineDragLeave() {
+        setDropTarget(false);
+      }
+
+      function handleTimelineDrop(e) {
+        e.preventDefault();
+        setDropTarget(false);
+        try {
+          const element = JSON.parse(e.dataTransfer.getData('element'));
+          if (!element) return;
+          const rect = timelineRef.current.getBoundingClientRect();
+          const x = e.clientX - rect.left + timelineRef.current.scrollLeft - 120;
+          const startTime = Math.max(0, x / pxPerSecond);
+          const dur = measuresToSeconds(8, bpm);
+          const newBlock = {
+            id: 'b' + Date.now(),
+            element: element.name,
+            color: element.color,
+            startTime,
+            duration: dur,
+            track: element.name,
+          };
+          setBlocks(prev => [...prev, newBlock]);
+          if (!tracks.includes(element.name)) {
+            setTracks(prev => [...prev, element.name]);
+          }
+        } catch (err) {}
+      }
+
+      // ── Block drag (move) ──
+      function handleBlockMouseDown(e, blockId, mode) {
+        e.stopPropagation();
+        e.preventDefault();
+        const block = blocks.find(b => b.id === blockId);
+        if (!block) return;
+        const startX = e.clientX;
+        const origStart = block.startTime;
+        const origDur = block.duration;
+
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          setBlocks(prev => prev.map(b => {
+            if (b.id !== blockId) return b;
+            if (mode === 'move') {
+              return { ...b, startTime: Math.max(0, origStart + dt) };
+            } else if (mode === 'resize-right') {
+              return { ...b, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+            } else if (mode === 'resize-left') {
+              const newStart = Math.max(0, origStart + dt);
+              const newDur = origDur - (newStart - origStart);
+              if (newDur < measuresToSeconds(1, bpm)) return b;
+              return { ...b, startTime: newStart, duration: newDur };
+            }
+            return b;
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      function removeTrack(trackName) {
+        setTracks(prev => prev.filter(t => t !== trackName));
+        setBlocks(prev => prev.filter(b => b.track !== trackName));
+      }
+
+      // ── Section marker rename ──
+      function handleSectionDoubleClick(idx) {
+        setEditingSectionIdx(idx);
+      }
+
+      function handleSectionRename(idx, newName) {
+        setSectionMarkers(prev => prev.map((s, i) => i === idx ? { ...s, name: newName } : s));
+      }
+
+      function handleSectionRenameConfirm() {
+        setEditingSectionIdx(null);
+      }
+
+      // ── Add section at the end ──
+      function deleteSection(idx) {
+        const sec = sectionMarkers[idx];
+        if (!sec) return;
+        // Remove associated energy points
+        const startId = 'ep-start-' + idx;
+        const endId = 'ep-end-' + idx;
+        setEnergyPoints(prev => prev.filter(p => p.id !== startId && p.id !== endId));
+        setSectionMarkers(prev => prev.filter((_, i) => i !== idx));
+        // Re-index remaining energy points
+        setTimeout(() => {
+          setSectionMarkers(curr => {
+            setEnergyPoints(prevEp => {
+              const newEp = [];
+              curr.forEach((s, i) => {
+                newEp.push({ id: 'ep-start-' + i, time: s.startTime, value: prevEp.find(p => Math.abs(p.time - s.startTime) < 0.5)?.value || 5 });
+                newEp.push({ id: 'ep-end-' + i, time: s.startTime + s.duration, value: prevEp.find(p => Math.abs(p.time - (s.startTime + s.duration)) < 0.5)?.value || 3 });
+              });
+              return newEp;
+            });
+            return curr;
+          });
+        }, 50);
+      }
+
+      function addSection() {
+        const lastSec = sectionMarkers[sectionMarkers.length - 1];
+        const newStart = lastSec ? lastSec.startTime + lastSec.duration : 0;
+        const newDur = measuresToSeconds(8, bpm);
+        const newIdx = sectionMarkers.length;
+
+        setSectionMarkers(prev => [...prev, {
+          name: 'Nouvelle',
+          startTime: newStart,
+          duration: newDur,
+        }]);
+
+        // Add energy points for the new section
+        setEnergyPoints(prev => [...prev,
+          { id: 'ep-start-' + newIdx, time: newStart, value: 5 },
+          { id: 'ep-end-' + newIdx, time: newStart + newDur, value: 3 },
+        ]);
+
+        // Extend total duration if needed
+        const newEnd = newStart + newDur + 10;
+        if (newEnd > totalDuration) {
+          setTotalDuration(newEnd);
+        }
+      }
+
+      // ── Section marker drag (move) & resize — energy points follow ──
+      function handleSectionMouseDown(e, idx, mode) {
+        e.stopPropagation();
+        e.preventDefault();
+        if (mode === 'rename') return;
+        const sec = sectionMarkers[idx];
+        const startX = e.clientX;
+        const origStart = sec.startTime;
+        const origDur = sec.duration;
+
+        function onMove(ev) {
+          const dx = ev.clientX - startX;
+          const dt = dx / pxPerSecond;
+          let newStart = origStart;
+          let newDur = origDur;
+
+          if (mode === 'move') {
+            newStart = Math.max(0, origStart + dt);
+            newDur = origDur;
+          } else if (mode === 'resize-right') {
+            newDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
+          } else if (mode === 'resize-left') {
+            newStart = Math.max(0, origStart + dt);
+            newDur = origDur - (newStart - origStart);
+            if (newDur < measuresToSeconds(1, bpm)) return;
+          }
+
+          setSectionMarkers(prev => prev.map((s, i) =>
+            i === idx ? { ...s, startTime: newStart, duration: newDur } : s
+          ));
+
+          // Sync energy points: ep-start-{idx} → section start, ep-end-{idx} → section end
+          setEnergyPoints(prev => prev.map(p => {
+            if (p.id === 'ep-start-' + idx) return { ...p, time: newStart };
+            if (p.id === 'ep-end-' + idx) return { ...p, time: newStart + newDur };
+            return p;
+          }));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      // ── Energy curve ──
+      useEffect(() => {
+        drawEnergyCurve();
+      }, [energyPoints, totalDuration, pxPerSecond]);
+
+      function drawEnergyCurve() {
+        const canvas = energyCanvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = totalWidth;
+        const h = 70;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        if (energyPoints.length < 2) return;
+
+        const sorted = [...energyPoints].sort((a, b) => a.time - b.time);
+        const gradient = ctx.createLinearGradient(0, 0, w, 0);
+        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.5)');
+        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.5)');
+
+        // Fill
+        ctx.beginPath();
+        ctx.moveTo(sorted[0].time * pxPerSecond, h);
+        sorted.forEach((p, i) => {
+          const x = p.time * pxPerSecond;
+          const y = h - (p.value / 10) * (h - 8);
+          if (i === 0) ctx.lineTo(x, y);
+          else {
+            const prev = sorted[i - 1];
+            const px = prev.time * pxPerSecond;
+            const py = h - (prev.value / 10) * (h - 8);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        const lastPt = sorted[sorted.length - 1];
+        ctx.lineTo(lastPt.time * pxPerSecond, h);
+        ctx.closePath();
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // Line
+        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
+        lineGrad.addColorStop(0, '#00D9CE');
+        lineGrad.addColorStop(1, '#E91E8C');
+        ctx.beginPath();
+        sorted.forEach((p, i) => {
+          const x = p.time * pxPerSecond;
+          const y = h - (p.value / 10) * (h - 8);
+          if (i === 0) ctx.moveTo(x, y);
+          else {
+            const prev = sorted[i - 1];
+            const px = prev.time * pxPerSecond;
+            const py = h - (prev.value / 10) * (h - 8);
+            const cx = (px + x) / 2;
+            ctx.bezierCurveTo(cx, py, cx, y, x, y);
+          }
+        });
+        ctx.strokeStyle = lineGrad;
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+      }
+
+      function handleEnergyPointDrag(e, pointId) {
+        e.preventDefault();
+        const container = e.target.parentElement;
+        const rect = container.getBoundingClientRect();
+        const h = 70;
+
+        function onMove(ev) {
+          const y = ev.clientY - rect.top;
+          const val = Math.round(Math.max(0, Math.min(10, (1 - y / h) * 10)));
+          setEnergyPoints(prev => prev.map(p => p.id === pointId ? { ...p, value: val } : p));
+        }
+        function onUp() {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        }
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      }
+
+      // ── Exports ──
+      function exportPNG() {
+        const el = document.querySelector('.timeline-wrapper');
+        if (!el) return;
+        html2canvas(el, { backgroundColor: '#1a1a1a', scale: 2, scrollX: 0, scrollY: 0, width: el.scrollWidth, height: el.scrollHeight }).then(canvas => {
+          const link = document.createElement('a');
+          link.download = `trackmap-${style}.png`;
+          link.href = canvas.toDataURL();
+          link.click();
+        });
+      }
+
+      function exportTXT() {
+        let txt = `# Arrangement - ${STYLE_OPTIONS.find(s => s.value === style)?.label || style}\n`;
+        txt += `BPM : ${bpm} | Durée : ${secondsToTimeStr(totalDuration)}\n\n`;
+
+        sectionMarkers.forEach(sec => {
+          const endTime = sec.startTime + sec.duration;
+          const measures = Math.round(secondsToMeasures(sec.duration, bpm));
+          txt += `## ${sec.name.toUpperCase()} (${secondsToTimeStr(sec.startTime)}-${secondsToTimeStr(endTime)} | ${measures} mes)\n`;
+          const sectionBlocks = blocks.filter(b =>
+            b.startTime < endTime && (b.startTime + b.duration) > sec.startTime
+          );
+          const elements = [...new Set(sectionBlocks.map(b => b.element))];
+          elements.forEach(el => { txt += `- ${el}\n`; });
+          // Find energy
+          const ep = energyPoints.find(p => Math.abs(p.time - sec.startTime) < 1);
+          if (ep) {
+            const filled = '\u2588'.repeat(ep.value);
+            const empty = '\u2591'.repeat(10 - ep.value);
+            txt += `Énergie : ${filled}${empty} (${ep.value}/10)\n`;
+          }
+          txt += '\n';
+        });
+
+        if (notes.length > 0) {
+          txt += '## NOTES\n';
+          notes.forEach(n => {
+            if (n.text) txt += `- [${secondsToTimeStr(n.startTime)}] ${n.text}\n`;
+          });
+          txt += '\n';
+        }
+
+        const blob = new Blob([txt], { type: 'text/markdown' });
+        const link = document.createElement('a');
+        link.download = `trackmap-${style}.md`;
+        link.href = URL.createObjectURL(blob);
+        link.click();
+      }
+
+      function exportMIDI() {
+        try {
+          const midi = new Midi();
+          midi.header.setTempo(bpm);
+
+          // Add section markers as text events
+          sectionMarkers.forEach(sec => {
+            midi.header.update();
+          });
+
+          // Create a track per element
+          const trackElements = [...new Set(blocks.map(b => b.element))];
+          trackElements.forEach((elName, idx) => {
+            const track = midi.addTrack();
+            track.name = elName;
+            track.channel = Math.min(idx, 15);
+            const elBlocks = blocks.filter(b => b.element === elName);
+            elBlocks.forEach(block => {
+              // Add a placeholder note (C3=48) for each block's active region
+              const noteNum = 48 + (idx % 12);
+              track.addNote({
+                midi: noteNum,
+                time: block.startTime,
+                duration: block.duration,
+                velocity: 0.8,
+              });
+            });
+          });
+
+          const arrayBuffer = midi.toArray();
+          const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+          const link = document.createElement('a');
+          link.download = `trackmap-${style}.mid`;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+        } catch(err) {
+          alert('Erreur export MIDI : ' + err.message);
+        }
+      }
+
+      // ── Save / Load localStorage ──
+      function saveProject() {
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
+        localStorage.setItem('trackmap-project', JSON.stringify(data));
+        alert('Projet sauvegardé !');
+      }
+
+      function loadProject() {
+        const raw = localStorage.getItem('trackmap-project');
+        if (!raw) return;
+        try {
+          const data = JSON.parse(raw);
+          setStyle(data.style);
+          setBpm(data.bpm);
+          setBlocks(data.blocks);
+          setTracks(data.tracks);
+          setTotalDuration(data.totalDuration);
+          setSectionMarkers(data.sectionMarkers || []);
+          setEnergyPoints(data.energyPoints || []);
+          setNotes(data.notes || []);
+          if (data.audioOffset) setAudioOffset(data.audioOffset);
+          if (data.elements && data.elements.length) setElements([...ELEMENTS, ...data.elements]);
+        } catch (err) {}
+      }
+
+      useEffect(() => { loadProject(); }, []);
+
+      // ── Render ─────────────────────────────────────
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+          {/* Header */}
+          <div className="header">
+            <div className="header-left">
+              <span className="logo">{'\uD83D\uDDFA\uFE0F'} TrackMap<span className="logo-tm">{'\u2122'}</span><span className="logo-sub">by Mao Maker</span></span>
+            </div>
+            <div className="header-controls">
+              <div>
+                <div className="label">Style</div>
+                <select className="select-styled" value={style} onChange={handleStyleChange}>
+                  {STYLE_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <div className="label">BPM</div>
+                <input
+                  className="input-styled"
+                  type="number"
+                  min="60"
+                  max="200"
+                  value={bpm}
+                  onChange={e => setBpm(parseInt(e.target.value) || 120)}
+                />
+              </div>
+              <div>
+                <div className="label">Durée (s)</div>
+                <input
+                  className="input-styled"
+                  type="number"
+                  min="30"
+                  max="600"
+                  value={Math.round(totalDuration)}
+                  onChange={e => setTotalDuration(parseInt(e.target.value) || 300)}
+                />
+              </div>
+              <div>
+                <div className="label">Zoom</div>
+                <div className="zoom-controls">
+                  <input
+                    className="zoom-slider"
+                    type="range"
+                    min="1"
+                    max="30"
+                    step="0.5"
+                    value={pxPerSecond}
+                    onChange={e => setPxPerSecond(parseFloat(e.target.value))}
+                  />
+                  <span className="zoom-value">{Math.round(pxPerSecond / DEFAULT_PX_PER_SECOND * 100)}%</span>
+                  <button className="btn-fit" onClick={fitToScreen}>Fit</button>
+                </div>
+              </div>
+              <div>
+                <div className="label">Audio</div>
+                <div className="audio-controls">
+                  <input
+                    ref={audioInputRef}
+                    type="file"
+                    accept="audio/*"
+                    style={{ display: 'none' }}
+                    onChange={handleAudioImport}
+                  />
+                  {audioName ? (
+                    <>
+                      <span style={{ fontSize: 11, color: '#00D9CE', maxWidth: 100, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={audioName}>
+                        {'\uD83C\uDFB5'} {audioName}
+                      </span>
+                      <span style={{ fontSize: 10, color: '#888' }}>Offset:</span>
+                      <input
+                        className="audio-offset-input"
+                        type="number"
+                        step="0.01"
+                        value={audioOffset}
+                        onChange={e => setAudioOffset(parseFloat(e.target.value) || 0)}
+                        title="Décalage en secondes"
+                      />
+                      <span style={{ fontSize: 10, color: '#666' }}>s</span>
+                      {detectedBpm && <span className="detected-bpm" title="BPM détecté automatiquement">BPM détecté: {detectedBpm}</span>}
+                      <button className="audio-remove-btn" onClick={removeAudio} title="Retirer l'audio">&times;</button>
+                    </>
+                  ) : (
+                    <button className="audio-import-btn" onClick={() => audioInputRef.current?.click()}>
+                      {'\uD83C\uDFB5'} Importer
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Palette */}
+          <div className="palette-section">
+            <div className="palette-title">Palette d'éléments — glisser vers la timeline</div>
+            <div className="palette-grid">
+              {elements.map((el, idx) => (
+                <div
+                  key={el.name}
+                  className="palette-item"
+                  style={{ background: el.color + '22', border: `1px solid ${el.color}55` }}
+                  draggable
+                  onDragStart={e => handlePaletteDragStart(e, el)}
+                >
+                  <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0, padding: 0 }}>
+                    <input
+                      type="color"
+                      value={el.color}
+                      onChange={e => {
+                        const newColor = e.target.value;
+                        setElements(prev => prev.map((item, i) => i === idx ? { ...item, color: newColor } : item));
+                        setBlocks(prev => prev.map(b => b.element === el.name ? { ...b, color: newColor } : b));
+                      }}
+                      style={{ width: 0, height: 0, padding: 0, border: 'none', visibility: 'hidden', position: 'absolute' }}
+                    />
+                    <span className="palette-dot" style={{ background: el.color }}></span>
+                  </label>
+                  {el.name}
+                </div>
+              ))}
+              {addingElement ? (
+                <div className="palette-item" style={{ background: '#333', border: '1px solid #00D9CE', gap: '6px', cursor: 'default' }}>
+                  <input
+                    type="color"
+                    value={newElColor}
+                    onChange={e => setNewElColor(e.target.value)}
+                    style={{ width: 24, height: 24, border: 'none', background: 'none', cursor: 'pointer', padding: 0 }}
+                  />
+                  <input
+                    autoFocus
+                    placeholder="Nom..."
+                    value={newElName}
+                    onChange={e => setNewElName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && newElName.trim()) {
+                        setElements(prev => [...prev, { name: newElName.trim(), color: newElColor, emoji: '🔵' }]);
+                        setNewElName('');
+                        setNewElColor('#00D9CE');
+                        setAddingElement(false);
+                      }
+                      if (e.key === 'Escape') { setAddingElement(false); setNewElName(''); }
+                    }}
+                    style={{ background: '#444', border: '1px solid #555', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 12, width: 100 }}
+                  />
+                  <button
+                    onClick={() => {
+                      if (newElName.trim()) {
+                        setElements(prev => [...prev, { name: newElName.trim(), color: newElColor, emoji: '🔵' }]);
+                        setNewElName('');
+                        setNewElColor('#00D9CE');
+                        setAddingElement(false);
+                      }
+                    }}
+                    style={{ background: '#00D9CE', color: '#000', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer', fontSize: 12, fontWeight: 700 }}
+                  >OK</button>
+                </div>
+              ) : (
+                <div
+                  className="palette-item"
+                  style={{ background: '#2a2a2a', border: '1px dashed #555', cursor: 'pointer', color: '#888' }}
+                  onClick={() => setAddingElement(true)}
+                >
+                  <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
+                  Ajouter
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div
+            className={`timeline-container ${dropTarget ? 'drop-zone-highlight' : ''}`}
+            ref={timelineRef}
+            onDragOver={handleTimelineDragOver}
+            onDragLeave={handleTimelineDragLeave}
+            onDrop={handleTimelineDrop}
+            style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
+            onClick={handleTimelineClick}
+          >
+            <div className="timeline-wrapper" style={{ width: totalWidth + 130 }}>
+              {/* Section markers */}
+              <div className="section-markers" style={{ width: totalWidth }}>
+                {sectionMarkers.map((sec, i) => (
+                  <div
+                    key={i}
+                    className="section-marker"
+                    style={{
+                      left: sec.startTime * pxPerSecond,
+                      width: Math.max(30, sec.duration * pxPerSecond - 2),
+                    }}
+                    onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
+                    onDoubleClick={() => handleSectionDoubleClick(i)}
+                  >
+                    <div className="section-resize-handle left" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-left')}></div>
+                    {editingSectionIdx === i ? (
+                      <input
+                        className="section-name-input"
+                        value={sec.name}
+                        autoFocus
+                        onChange={e => handleSectionRename(i, e.target.value)}
+                        onBlur={handleSectionRenameConfirm}
+                        onKeyDown={e => { if (e.key === 'Enter') handleSectionRenameConfirm(); }}
+                        onClick={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                      />
+                    ) : (
+                      sec.name
+                    )}
+                    <div className="section-resize-handle right" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-right')}></div>
+                    <button
+                      className="section-delete-btn"
+                      onClick={e => { e.stopPropagation(); deleteSection(i); }}
+                      onMouseDown={e => e.stopPropagation()}
+                      title="Supprimer cette section"
+                    >&times;</button>
+                  </div>
+                ))}
+                {/* Add section button */}
+                {(() => {
+                  const lastSec = sectionMarkers[sectionMarkers.length - 1];
+                  const btnLeft = lastSec ? (lastSec.startTime + lastSec.duration) * pxPerSecond + 4 : 0;
+                  return (
+                    <div
+                      className="btn-add-section"
+                      style={{ left: btnLeft }}
+                      onClick={addSection}
+                      title="Ajouter une section"
+                    >+</div>
+                  );
+                })()}
+              </div>
+
+              {/* Time ruler */}
+              <div className="time-ruler" style={{ width: totalWidth }}>
+                {timeMarks.map(t => {
+                  const mes = Math.round(secondsToMeasures(t, bpm));
+                  return (
+                    <React.Fragment key={t}>
+                      <span className="time-mark" style={{ left: t * pxPerSecond }}>
+                        {secondsToTimeStr(t)}
+                      </span>
+                      <span className="time-mark-measures" style={{ left: t * pxPerSecond }}>
+                        {mes}
+                      </span>
+                      <span className="time-tick" style={{ left: t * pxPerSecond, height: 12 }}></span>
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+
+              {/* Tracks */}
+              <div className="tracks-area" style={{ position: 'relative' }}>
+                {/* Playhead */}
+                {waveformData && playheadTime > 0 && (
+                  <div className="playhead-line" style={{ left: 120 + playheadTime * pxPerSecond }}>
+                    <div className="playhead-head"></div>
+                  </div>
+                )}
+                {/* Grid lines */}
+                <div className="grid-lines" style={{ width: totalWidth }}>
+                  {gridLines.map((gl, i) => (
+                    <div
+                      key={i}
+                      className={`grid-line ${gl.major ? 'major' : ''}`}
+                      style={{ left: gl.time * pxPerSecond }}
+                    ></div>
+                  ))}
+                </div>
+
+                {/* Waveform row */}
+                {waveformData && (
+                  <div className="waveform-row">
+                    <div className="waveform-label">
+                      <span>{'\uD83C\uDFB5'} Audio</span>
+                      <button className={`play-btn ${isPlaying ? 'playing' : ''}`} onClick={togglePlay} title={isPlaying ? 'Pause' : 'Lecture'}>
+                        {isPlaying ? '\u23F8' : '\u25B6'}
+                      </button>
+                    </div>
+                    <div className="waveform-lane" style={{ width: totalWidth, cursor: 'pointer' }} onClick={seekAudio}>
+                      <canvas ref={waveformCanvasRef} className="waveform-canvas" style={{ width: totalWidth, height: 56 }}></canvas>
+                    </div>
+                  </div>
+                )}
+
+                {tracks.length === 0 && !waveformData ? (
+                  <div className="empty-timeline">
+                    Glissez des éléments depuis la palette ou sélectionnez un style
+                  </div>
+                ) : (
+                  tracks.map(trackName => {
+                    const el = elements.find(e => e.name === trackName);
+                    const trackBlocks = blocks.filter(b => b.track === trackName);
+                    return (
+                      <div className="track-row" key={trackName}>
+                        <div className="track-label">
+                          <span className="track-label-dot" style={{ background: el?.color || '#888' }}></span>
+                          <span className="track-label-text">{trackName}</span>
+                          <button className="track-remove-btn" onClick={() => removeTrack(trackName)} title="Supprimer la piste">&times;</button>
+                        </div>
+                        <div className="track-lane" style={{ width: totalWidth }}>
+                          {trackBlocks.map(block => (
+                            <div
+                              key={block.id}
+                              className={`block ${selectedBlockId === block.id ? 'selected' : ''}`}
+                              style={{
+                                left: block.startTime * pxPerSecond,
+                                width: block.duration * pxPerSecond,
+                                background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
+                                border: `1px solid ${block.color}`,
+                              }}
+                              onClick={e => { e.stopPropagation(); if (e.altKey) { duplicateBlock(block.id); } else { setSelectedBlockId(block.id); } }}
+                              onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
+                            >
+                              <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
+                              <span className="block-label">{block.element}</span>
+                              <div className="resize-handle right" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-right')}></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                {/* Energy curve */}
+                {energyPoints.length > 0 && (
+                  <div className="energy-curve-container" style={{ width: totalWidth }}>
+                    <span className="energy-label">Énergie</span>
+                    <canvas ref={energyCanvasRef} className="energy-canvas" style={{ width: totalWidth, height: 70 }}></canvas>
+                    {energyPoints.map(p => {
+                      const x = p.time * pxPerSecond;
+                      const y = 70 - (p.value / 10) * 62;
+                      return (
+                        <React.Fragment key={p.id}>
+                          <div
+                            className="energy-point"
+                            style={{ left: x, top: y }}
+                            onMouseDown={e => handleEnergyPointDrag(e, p.id)}
+                            onMouseEnter={() => setHoveredEnergy(p.id)}
+                            onMouseLeave={() => setHoveredEnergy(null)}
+                          ></div>
+                          {hoveredEnergy === p.id && (
+                            <div className="energy-tooltip" style={{ left: x, top: y }}>
+                              Énergie : {p.value}/10
+                            </div>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Notes row */}
+                <div className="notes-row">
+                  <div className="notes-label">
+                    {'\uD83D\uDCDD'} Notes
+                    <button
+                      onClick={addNote}
+                      style={{ background: 'none', border: '1px dashed #555', color: '#888', borderRadius: 4, cursor: 'pointer', fontSize: 11, padding: '1px 6px' }}
+                      title="Ajouter une note"
+                    >+</button>
+                  </div>
+                  <div className="notes-lane" style={{ width: totalWidth }}>
+                    {notes.map(note => (
+                      <div
+                        key={note.id}
+                        className="note-marker"
+                        style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
+                        onMouseDown={e => handleNoteMove(e, note.id)}
+                      >
+                        <div className="note-resize-handle left" onMouseDown={e => handleNoteResize(e, note.id, 'left')}></div>
+                        {editingNoteId === note.id ? (
+                          <input
+                            className="note-input"
+                            autoFocus
+                            value={note.text}
+                            onChange={e => updateNoteText(note.id, e.target.value)}
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') setEditingNoteId(null);
+                              if (e.key === 'Escape') setEditingNoteId(null);
+                              if (e.key === 'Delete' && !note.text) { e.preventDefault(); deleteNote(note.id); }
+                            }}
+                            onBlur={() => setEditingNoteId(null)}
+                            placeholder="Écrire une note..."
+                          />
+                        ) : (
+                          <span
+                            style={{ cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
+                            onClick={() => setEditingNoteId(note.id)}
+                            onDoubleClick={() => deleteNote(note.id)}
+                            title="Clic pour éditer · Double-clic pour supprimer"
+                          >
+                            {note.text || '...'}
+                          </span>
+                        )}
+                        <div className="note-resize-handle right" onMouseDown={e => handleNoteResize(e, note.id, 'right')}></div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="footer-bar">
+            <div className="footer-info">
+              {tracks.length} pistes | {blocks.length} blocs | {secondsToTimeStr(totalDuration)} | {bpm} BPM | {Math.round(secondsToMeasures(totalDuration, bpm))} mesures
+              {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer</span>}
+            </div>
+            <div className="footer-actions">
+              <button className="btn btn-primary" onClick={exportMIDI}>
+                {'\uD83D\uDCE5'} Export MIDI
+              </button>
+              <button className="btn btn-secondary" onClick={exportPNG}>
+                {'\uD83D\uDCF7'} Export PNG
+              </button>
+              <button className="btn btn-secondary" onClick={exportTXT}>
+                {'\uD83D\uDCDD'} Export TXT
+              </button>
+              <button className="btn btn-accent" onClick={saveProject}>
+                {'\uD83D\uDCBE'} Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+  </script>
+</body>
+</html>
