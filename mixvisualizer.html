@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mix Visualizer 3D</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a28;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-dim: #8888aa;
+    --accent: #00d9ce;
+    --accent2: #e91e8c;
+    --accent3: #7c5cfc;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* --- Layout --- */
+  #app {
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    grid-template-columns: 320px 1fr;
+    height: 100vh;
+  }
+
+  /* --- Top Bar --- */
+  #topbar {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+  }
+  #topbar .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+  #topbar .logo svg { width: 28px; height: 28px; }
+  #topbar .actions { display: flex; align-items: center; gap: 12px; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .btn:hover { background: var(--border); }
+  .btn.primary {
+    background: var(--accent);
+    color: #000;
+    border-color: var(--accent);
+    font-weight: 600;
+  }
+  .btn.primary:hover { filter: brightness(1.15); }
+
+  /* --- Sidebar --- */
+  #sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  #sidebar::-webkit-scrollbar { width: 4px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  .panel {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .panel h3 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+
+  /* Upload area */
+  #dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 32px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  #dropzone:hover, #dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(0,217,206,0.05);
+  }
+  #dropzone svg { margin-bottom: 8px; }
+  #dropzone p { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+  #dropzone .filename {
+    font-size: 12px;
+    color: var(--accent);
+    margin-top: 8px;
+    word-break: break-all;
+  }
+  #fileInput { display: none; }
+
+  /* Instrument list */
+  .instrument-list { display: flex; flex-direction: column; gap: 6px; }
+  .instrument-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    font-size: 13px;
+    transition: background .15s;
+  }
+  .instrument-item:hover { background: rgba(255,255,255,0.06); }
+  .instrument-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .instrument-name { flex: 1; font-weight: 500; }
+  .instrument-vol {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-variant-numeric: tabular-nums;
+  }
+  .instrument-pan {
+    font-size: 10px;
+    color: var(--text-dim);
+    width: 32px;
+    text-align: right;
+  }
+
+  /* Sliders */
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .slider-row label {
+    font-size: 12px;
+    color: var(--text-dim);
+    width: 80px;
+    flex-shrink: 0;
+  }
+  .slider-row input[type=range] {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    outline: none;
+  }
+  .slider-row input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent);
+    cursor: pointer;
+  }
+  .slider-row .val {
+    font-size: 11px;
+    color: var(--text-dim);
+    width: 30px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Legend */
+  .legend-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .legend-grid span { display: flex; align-items: center; gap: 6px; }
+  .legend-grid .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Analyzing state */
+  .analyzing-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,10,15,0.85);
+    z-index: 200;
+    gap: 16px;
+  }
+  .analyzing-overlay .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .analyzing-overlay p { font-size: 14px; color: var(--text-dim); }
+
+  /* --- 3D Canvas area --- */
+  #canvas-wrap {
+    position: relative;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  #canvas-wrap canvas { display: block; }
+
+  /* HUD overlay */
+  .hud {
+    position: absolute;
+    pointer-events: none;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .hud-bottom {
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 32px;
+    background: rgba(18,18,26,0.8);
+    backdrop-filter: blur(12px);
+    padding: 8px 20px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+  }
+  .hud-axis { display: flex; align-items: center; gap: 6px; }
+  .hud-axis .arrow { color: var(--accent); font-size: 14px; }
+
+  /* Tooltip */
+  #tooltip {
+    position: absolute;
+    display: none;
+    pointer-events: none;
+    background: rgba(18,18,26,0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    z-index: 50;
+    min-width: 140px;
+  }
+  #tooltip .tt-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; color: var(--text-dim); margin-top: 2px; }
+  #tooltip .tt-val { color: var(--text); font-weight: 500; }
+
+  /* Transport */
+  .transport {
+    position: absolute;
+    bottom: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 8px;
+    z-index: 30;
+  }
+  .transport button {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: rgba(18,18,26,0.9);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    backdrop-filter: blur(8px);
+  }
+  .transport button:hover { border-color: var(--accent); color: var(--accent); }
+  .transport button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+
+  /* Empty state */
+  .empty-state {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    color: var(--text-dim);
+  }
+  .empty-state svg { opacity: 0.3; }
+  .empty-state p { font-size: 14px; }
+
+  /* Play progress */
+  .progress-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.1s linear;
+    z-index: 10;
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    #app { grid-template-columns: 1fr; }
+    #sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Top Bar -->
+  <div id="topbar">
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none">
+        <circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5" opacity="0.3"/>
+        <circle cx="14" cy="14" r="6" fill="url(#g1)"/>
+        <circle cx="14" cy="8" r="2.5" fill="url(#g2)"/>
+        <circle cx="9" cy="18" r="3.5" fill="url(#g3)" opacity="0.7"/>
+        <circle cx="19" cy="17" r="2" fill="url(#g4)" opacity="0.6"/>
+        <defs>
+          <radialGradient id="g1"><stop stop-color="#7c5cfc"/><stop offset="1" stop-color="#5c3cdc"/></radialGradient>
+          <radialGradient id="g2"><stop stop-color="#e91e8c"/><stop offset="1" stop-color="#c9006c"/></radialGradient>
+          <radialGradient id="g3"><stop stop-color="#00d9ce"/><stop offset="1" stop-color="#00a99e"/></radialGradient>
+          <radialGradient id="g4"><stop stop-color="#ffd600"/><stop offset="1" stop-color="#ffaa00"/></radialGradient>
+        </defs>
+      </svg>
+      Mix Visualizer 3D
+    </div>
+    <div class="actions">
+      <a href="trackmap.html" class="btn" style="text-decoration:none;">TrackMap</a>
+      <button class="btn" id="btnReset" title="Réinitialiser">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
+        Reset
+      </button>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <!-- Upload -->
+    <div id="dropzone" tabindex="0">
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5">
+        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/>
+        <line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <p>Glisser un fichier audio ici<br>ou <strong style="color:var(--accent)">cliquer pour parcourir</strong></p>
+      <p style="font-size:11px;margin-top:4px;opacity:0.5">WAV, MP3, FLAC, OGG</p>
+      <div class="filename" id="fileName"></div>
+    </div>
+    <input type="file" id="fileInput" accept="audio/*">
+
+    <!-- Detected Instruments -->
+    <div class="panel" id="panelInstruments" style="display:none">
+      <h3>Elements detectes</h3>
+      <div class="instrument-list" id="instrumentList"></div>
+    </div>
+
+    <!-- View Controls -->
+    <div class="panel">
+      <h3>Vue 3D</h3>
+      <div class="slider-row">
+        <label>Rotation</label>
+        <input type="range" id="sliderRotation" min="0" max="100" value="30">
+        <span class="val" id="valRotation">30</span>
+      </div>
+      <div class="slider-row">
+        <label>Zoom</label>
+        <input type="range" id="sliderZoom" min="10" max="200" value="80">
+        <span class="val" id="valZoom">80</span>
+      </div>
+      <div class="slider-row">
+        <label>Elevation</label>
+        <input type="range" id="sliderElevation" min="0" max="90" value="25">
+        <span class="val" id="valElevation">25</span>
+      </div>
+    </div>
+
+    <!-- Analysis Settings -->
+    <div class="panel">
+      <h3>Analyse</h3>
+      <div class="slider-row">
+        <label>Sensibilite</label>
+        <input type="range" id="sliderSensitivity" min="1" max="100" value="50">
+        <span class="val" id="valSensitivity">50</span>
+      </div>
+      <div class="slider-row">
+        <label>Smoothing</label>
+        <input type="range" id="sliderSmoothing" min="0" max="100" value="70">
+        <span class="val" id="valSmoothing">70</span>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="panel">
+      <h3>Legende des axes</h3>
+      <div style="font-size:12px;color:var(--text-dim);line-height:1.8">
+        <div><strong style="color:var(--accent)">X (horizontal)</strong> — Panoramique stereo (G ↔ D)</div>
+        <div><strong style="color:var(--accent2)">Y (vertical)</strong> — Frequence (grave ↓ aigu ↑)</div>
+        <div><strong style="color:var(--accent3)">Taille</strong> — Volume relatif</div>
+        <div><strong style="color:#ffd600">Profondeur</strong> — Reverb / espace</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3D Canvas Area -->
+  <div id="canvas-wrap">
+    <div class="empty-state" id="emptyState">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <circle cx="12" cy="12" r="10"/>
+        <path d="M12 8v4l3 3"/>
+      </svg>
+      <p>Importer un fichier audio pour commencer l'analyse</p>
+    </div>
+
+    <canvas id="scene"></canvas>
+
+    <div id="tooltip">
+      <div class="tt-name"></div>
+      <div class="tt-row"><span>Volume</span><span class="tt-val" id="ttVol"></span></div>
+      <div class="tt-row"><span>Pan</span><span class="tt-val" id="ttPan"></span></div>
+      <div class="tt-row"><span>Freq</span><span class="tt-val" id="ttFreq"></span></div>
+    </div>
+
+    <!-- HUD -->
+    <div class="hud hud-bottom" id="hudBottom" style="display:none">
+      <div class="hud-axis"><span class="arrow">←</span> Gauche — Droite <span class="arrow">→</span></div>
+      <div class="hud-axis"><span class="arrow">↓</span> Grave — Aigu <span class="arrow">↑</span></div>
+      <div class="hud-axis">Taille = Volume</div>
+    </div>
+
+    <!-- Transport -->
+    <div class="transport" id="transport" style="display:none">
+      <button id="btnPlay" title="Lecture">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+      </button>
+      <button id="btnPause" title="Pause">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <button id="btnLive" title="Mode temps reel" class="">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      </button>
+    </div>
+
+    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+  </div>
+</div>
+
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ============================================================
+//  MIX VISUALIZER 3D - Audio Analysis & Visualization Engine
+// ============================================================
+
+(function() {
+'use strict';
+
+// ----- Constants -----
+const INSTRUMENT_DEFS = [
+  { id: 'sub',       name: 'Sub Bass',      color: '#6b3fa0', freqRange: [20, 60],    yPos: 0.0 },
+  { id: 'kick',      name: 'Kick',          color: '#d4a053', freqRange: [40, 120],   yPos: 0.08 },
+  { id: 'bass',      name: 'Bass',          color: '#00c9a7', freqRange: [60, 250],   yPos: 0.15 },
+  { id: 'snare',     name: 'Snare',         color: '#e63946', freqRange: [150, 1000], yPos: 0.35 },
+  { id: 'keys',      name: 'Keys / Piano',  color: '#f4a261', freqRange: [200, 2000], yPos: 0.45 },
+  { id: 'vocal',     name: 'Lead Vocal',    color: '#7c5cfc', freqRange: [250, 4000], yPos: 0.55 },
+  { id: 'guitar',    name: 'Guitare',       color: '#2a9d8f', freqRange: [200, 5000], yPos: 0.50 },
+  { id: 'clap',      name: 'Clap / Perc',   color: '#ffd166', freqRange: [500, 4000], yPos: 0.55 },
+  { id: 'bgv',       name: 'BGV / Choeurs', color: '#e91e8c', freqRange: [300, 5000], yPos: 0.60 },
+  { id: 'synth',     name: 'Synth / Pad',   color: '#4cc9f0', freqRange: [150, 8000], yPos: 0.50 },
+  { id: 'hihat',     name: 'Hi-Hats',       color: '#b5e48c', freqRange: [5000,16000],yPos: 0.85 },
+  { id: 'cymbal',    name: 'Cymbales',      color: '#d0d0d0', freqRange: [4000,18000],yPos: 0.90 },
+  { id: 'air',       name: 'Air / Brillance',color:'#ffffff', freqRange: [10000,20000],yPos:0.95 },
+];
+
+// ----- State -----
+let audioCtx = null;
+let audioBuffer = null;
+let sourceNode = null;
+let analyserL = null, analyserR = null;
+let splitter = null;
+let isPlaying = false;
+let playStartTime = 0;
+let playOffset = 0;
+let animationId = null;
+let detectedElements = [];
+let liveMode = false;
+
+// Three.js
+let scene, camera, renderer, clock;
+let elementMeshes = [];
+let gridHelper, floorMesh;
+let mouseVec = new THREE.Vector2(-999, -999);
+let raycaster = new THREE.Raycaster();
+let hoveredMesh = null;
+let autoRotate = true;
+let cameraAngle = 0;
+
+// Settings
+const settings = {
+  rotation: 30,
+  zoom: 80,
+  elevation: 25,
+  sensitivity: 50,
+  smoothing: 70,
+};
+
+// ----- DOM -----
+const $ = id => document.getElementById(id);
+const canvas = $('scene');
+const dropzone = $('dropzone');
+const fileInput = $('fileInput');
+
+// ----- Audio Context -----
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  return audioCtx;
+}
+
+// ----- File Loading -----
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files.length) loadFile(e.target.files[0]);
+});
+
+async function loadFile(file) {
+  $('fileName').textContent = file.name;
+  const ctx = getAudioContext();
+
+  // Show analyzing overlay
+  showAnalyzing(true);
+
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+    analyzeFullAudio();
+    $('emptyState').style.display = 'none';
+    $('hudBottom').style.display = 'flex';
+    $('transport').style.display = 'flex';
+    $('panelInstruments').style.display = 'block';
+    initThreeScene();
+    startVisualization();
+  } catch(err) {
+    console.error('Error loading audio:', err);
+    alert('Erreur lors du chargement du fichier audio.');
+  }
+  showAnalyzing(false);
+}
+
+function showAnalyzing(show) {
+  let el = document.querySelector('.analyzing-overlay');
+  if (show && !el) {
+    el = document.createElement('div');
+    el.className = 'analyzing-overlay';
+    el.innerHTML = '<div class="spinner"></div><p>Analyse en cours...</p>';
+    $('canvas-wrap').appendChild(el);
+  } else if (!show && el) {
+    el.remove();
+  }
+}
+
+// ----- Full Audio Analysis -----
+function analyzeFullAudio() {
+  if (!audioBuffer) return;
+
+  const sampleRate = audioBuffer.sampleRate;
+  const fftSize = 4096;
+  const numChannels = audioBuffer.numberOfChannels;
+  const dataL = audioBuffer.getChannelData(0);
+  const dataR = numChannels > 1 ? audioBuffer.getChannelData(1) : dataL;
+  const length = dataL.length;
+
+  // Analyze in overlapping windows
+  const hopSize = fftSize / 2;
+  const numFrames = Math.floor((length - fftSize) / hopSize);
+
+  // Accumulate energy per frequency bin
+  const freqBinCount = fftSize / 2;
+  const energyL = new Float32Array(freqBinCount);
+  const energyR = new Float32Array(freqBinCount);
+  const transientScore = new Float32Array(freqBinCount);
+
+  // We'll use offline analysis with manual FFT
+  // Simple DFT approximation using windowed analysis
+  const window_ = new Float32Array(fftSize);
+  for (let i = 0; i < fftSize; i++) {
+    window_[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1))); // Hann window
+  }
+
+  let prevMagL = new Float32Array(freqBinCount);
+  let prevMagR = new Float32Array(freqBinCount);
+  let frameCount = 0;
+
+  // Use OfflineAudioContext for precise FFT
+  const offCtx = new OfflineAudioContext(numChannels, length, sampleRate);
+  const offAnalyser = offCtx.createAnalyser();
+  offAnalyser.fftSize = fftSize;
+  offAnalyser.smoothingTimeConstant = 0;
+
+  // Simpler approach: chunk-based RMS per frequency band
+  const chunkDuration = 0.05; // 50ms chunks
+  const chunkSamples = Math.floor(sampleRate * chunkDuration);
+  const numChunks = Math.floor(length / chunkSamples);
+
+  // For each instrument, compute energy in its frequency range
+  detectedElements = [];
+
+  INSTRUMENT_DEFS.forEach(def => {
+    let totalEnergyL = 0;
+    let totalEnergyR = 0;
+    let transient = 0;
+    let count = 0;
+
+    // Use Web Audio offline analysis approach
+    const lowBin = Math.floor(def.freqRange[0] * fftSize / sampleRate);
+    const highBin = Math.min(Math.floor(def.freqRange[1] * fftSize / sampleRate), freqBinCount - 1);
+
+    // Manual spectral analysis in chunks
+    for (let chunk = 0; chunk < Math.min(numChunks, 200); chunk++) {
+      const start = chunk * chunkSamples;
+      const end = Math.min(start + fftSize, length);
+      if (end - start < fftSize) break;
+
+      // Compute FFT magnitudes for this chunk (simplified via autocorrelation energy estimation)
+      let chunkEnergyL = 0;
+      let chunkEnergyR = 0;
+
+      // Bandpass energy estimation
+      // We'll use a simplified spectral energy approach
+      for (let i = start; i < start + fftSize && i < length; i++) {
+        const idx = i - start;
+        const wL = dataL[i] * window_[idx];
+        const wR = dataR[i] * window_[idx];
+        chunkEnergyL += wL * wL;
+        chunkEnergyR += wR * wR;
+      }
+
+      // Weight by frequency band (approximate bandpass)
+      const bandWidth = highBin - lowBin;
+      const totalBins = freqBinCount;
+      const bandRatio = bandWidth / totalBins;
+
+      totalEnergyL += chunkEnergyL * bandRatio;
+      totalEnergyR += chunkEnergyR * bandRatio;
+      count++;
+    }
+
+    if (count > 0) {
+      totalEnergyL /= count;
+      totalEnergyR /= count;
+    }
+
+    // Use proper offline FFT for better accuracy
+    const avgEnergy = (totalEnergyL + totalEnergyR) / 2;
+    const pan = totalEnergyL + totalEnergyR > 0
+      ? (totalEnergyR - totalEnergyL) / (totalEnergyR + totalEnergyL)
+      : 0;
+
+    // Determine if this element is actually present
+    const threshold = 0.0001 * (settings.sensitivity / 50);
+    if (avgEnergy > threshold) {
+      detectedElements.push({
+        ...def,
+        energy: avgEnergy,
+        pan: Math.max(-1, Math.min(1, pan)),
+        volumeDb: 10 * Math.log10(avgEnergy + 1e-10),
+      });
+    }
+  });
+
+  // Now do proper FFT-based analysis using Web Audio API
+  performDetailedFFTAnalysis();
+
+  // Normalize volumes
+  if (detectedElements.length > 0) {
+    const maxEnergy = Math.max(...detectedElements.map(e => e.energy));
+    detectedElements.forEach(e => {
+      e.normalizedVol = Math.pow(e.energy / maxEnergy, 0.5);
+    });
+  }
+
+  updateInstrumentList();
+}
+
+function performDetailedFFTAnalysis() {
+  // Re-analyze with proper FFT using AudioContext
+  if (!audioBuffer) return;
+
+  const ctx = getAudioContext();
+  const sampleRate = audioBuffer.sampleRate;
+  const fftSize = 8192;
+  const numChannels = audioBuffer.numberOfChannels;
+  const dataL = audioBuffer.getChannelData(0);
+  const dataR = numChannels > 1 ? audioBuffer.getChannelData(1) : dataL;
+  const length = dataL.length;
+  const freqBinCount = fftSize / 2;
+
+  // Hann window
+  const win = new Float32Array(fftSize);
+  for (let i = 0; i < fftSize; i++) {
+    win[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1)));
+  }
+
+  // Analyze multiple windows and average
+  const hopSize = fftSize;
+  const numWindows = Math.min(Math.floor(length / hopSize), 100);
+
+  // Compute average magnitude spectrum per channel
+  const avgSpecL = new Float32Array(freqBinCount);
+  const avgSpecR = new Float32Array(freqBinCount);
+
+  for (let w = 0; w < numWindows; w++) {
+    const offset = w * hopSize;
+
+    // Build windowed real arrays
+    const realL = new Float32Array(fftSize);
+    const realR = new Float32Array(fftSize);
+
+    for (let i = 0; i < fftSize && offset + i < length; i++) {
+      realL[i] = dataL[offset + i] * win[i];
+      realR[i] = dataR[offset + i] * win[i];
+    }
+
+    // Simple DFT for key frequency bins (not full DFT for performance)
+    // We only compute bins we care about
+    for (let di = 0; di < detectedElements.length; di++) {
+      const el = detectedElements[di];
+      const lowBin = Math.max(1, Math.floor(el.freqRange[0] * fftSize / sampleRate));
+      const highBin = Math.min(freqBinCount - 1, Math.floor(el.freqRange[1] * fftSize / sampleRate));
+
+      // Sample a few bins in the range
+      const step = Math.max(1, Math.floor((highBin - lowBin) / 20));
+      let sumL = 0, sumR = 0, binCount = 0;
+
+      for (let k = lowBin; k <= highBin; k += step) {
+        // Goertzel algorithm for single bin
+        const freq = 2 * Math.PI * k / fftSize;
+        let s0L = 0, s1L = 0, s2L = 0;
+        let s0R = 0, s1R = 0, s2R = 0;
+        const coeff = 2 * Math.cos(freq);
+
+        for (let n = 0; n < fftSize; n++) {
+          s0L = realL[n] + coeff * s1L - s2L;
+          s2L = s1L; s1L = s0L;
+          s0R = realR[n] + coeff * s1R - s2R;
+          s2R = s1R; s1R = s0R;
+        }
+
+        const magL = Math.sqrt(s1L * s1L + s2L * s2L - coeff * s1L * s2L);
+        const magR = Math.sqrt(s1R * s1R + s2R * s2R - coeff * s1R * s2R);
+
+        sumL += magL;
+        sumR += magR;
+        binCount++;
+      }
+
+      if (w === 0) {
+        el._fftEnergyL = 0;
+        el._fftEnergyR = 0;
+        el._fftCount = 0;
+      }
+      el._fftEnergyL += sumL / (binCount || 1);
+      el._fftEnergyR += sumR / (binCount || 1);
+      el._fftCount++;
+    }
+  }
+
+  // Update elements with FFT results
+  detectedElements.forEach(el => {
+    if (el._fftCount > 0) {
+      el._fftEnergyL /= el._fftCount;
+      el._fftEnergyR /= el._fftCount;
+
+      const totalEnergy = el._fftEnergyL + el._fftEnergyR;
+      el.energy = totalEnergy / 2;
+      el.pan = totalEnergy > 0 ? (el._fftEnergyR - el._fftEnergyL) / totalEnergy : 0;
+      el.pan = Math.max(-1, Math.min(1, el.pan));
+      el.volumeDb = 20 * Math.log10(el.energy + 1e-10);
+    }
+  });
+
+  // Re-filter by threshold and normalize
+  const threshold = 0.5 * (settings.sensitivity / 50);
+  detectedElements = detectedElements.filter(e => e.energy > threshold);
+
+  if (detectedElements.length > 0) {
+    const maxEnergy = Math.max(...detectedElements.map(e => e.energy));
+    detectedElements.forEach(e => {
+      e.normalizedVol = Math.pow(e.energy / (maxEnergy || 1), 0.4);
+    });
+  }
+}
+
+// ----- Instrument List UI -----
+function updateInstrumentList() {
+  const list = $('instrumentList');
+  list.innerHTML = '';
+
+  detectedElements.sort((a, b) => b.energy - a.energy);
+
+  detectedElements.forEach(el => {
+    const div = document.createElement('div');
+    div.className = 'instrument-item';
+
+    const volPercent = Math.round((el.normalizedVol || 0) * 100);
+    const panLabel = el.pan < -0.15 ? `L${Math.round(Math.abs(el.pan)*100)}` :
+                     el.pan > 0.15 ? `R${Math.round(el.pan*100)}` : 'C';
+
+    div.innerHTML = `
+      <span class="instrument-dot" style="background:${el.color}"></span>
+      <span class="instrument-name">${el.name}</span>
+      <span class="instrument-vol">${volPercent}%</span>
+      <span class="instrument-pan">${panLabel}</span>
+    `;
+    list.appendChild(div);
+  });
+}
+
+// ----- Three.js Scene -----
+function initThreeScene() {
+  if (renderer) return; // Already initialized
+
+  const wrap = $('canvas-wrap');
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+
+  // Scene
+  scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+
+  // Camera
+  camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 1000);
+  camera.position.set(0, 8, 18);
+  camera.lookAt(0, 3, 0);
+
+  // Renderer
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+  renderer.setSize(w, h);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setClearColor(0x0a0a0f);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+
+  clock = new THREE.Clock();
+
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0x404060, 0.6);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+  dirLight.position.set(10, 20, 10);
+  scene.add(dirLight);
+
+  const pointLight1 = new THREE.PointLight(0x00d9ce, 0.6, 50);
+  pointLight1.position.set(-10, 10, 5);
+  scene.add(pointLight1);
+
+  const pointLight2 = new THREE.PointLight(0xe91e8c, 0.4, 50);
+  pointLight2.position.set(10, 5, -5);
+  scene.add(pointLight2);
+
+  // Floor / Stage
+  createStage();
+
+  // Grid
+  createGrid();
+
+  // Axis labels
+  createAxisLabels();
+
+  // Build element meshes
+  buildElementMeshes();
+
+  // Events
+  window.addEventListener('resize', onResize);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseleave', () => {
+    mouseVec.set(-999, -999);
+    hideTooltip();
+  });
+}
+
+function createStage() {
+  // Reflective floor
+  const floorGeo = new THREE.PlaneGeometry(30, 20);
+  const floorMat = new THREE.MeshPhysicalMaterial({
+    color: 0x0a0a14,
+    metalness: 0.8,
+    roughness: 0.3,
+    reflectivity: 0.5,
+    transparent: true,
+    opacity: 0.6,
+  });
+  floorMesh = new THREE.Mesh(floorGeo, floorMat);
+  floorMesh.rotation.x = -Math.PI / 2;
+  floorMesh.position.y = -0.05;
+  scene.add(floorMesh);
+
+  // Glowing edge lines
+  const edgeGeo = new THREE.EdgesGeometry(new THREE.PlaneGeometry(30, 20));
+  const edgeMat = new THREE.LineBasicMaterial({ color: 0x00d9ce, transparent: true, opacity: 0.2 });
+  const edgeLines = new THREE.LineSegments(edgeGeo, edgeMat);
+  edgeLines.rotation.x = -Math.PI / 2;
+  edgeLines.position.y = 0;
+  scene.add(edgeLines);
+}
+
+function createGrid() {
+  // Custom grid with labels
+  const gridMat = new THREE.LineBasicMaterial({ color: 0x1a1a28, transparent: true, opacity: 0.5 });
+
+  // Horizontal lines (frequency levels)
+  for (let i = 0; i <= 10; i++) {
+    const y = i * 1.2;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(-12, y, -8),
+      new THREE.Vector3(12, y, -8),
+    ]);
+    scene.add(new THREE.Line(geo, gridMat));
+  }
+
+  // Vertical lines (pan positions)
+  for (let i = -4; i <= 4; i++) {
+    const x = i * 3;
+    const geo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x, 0, -8),
+      new THREE.Vector3(x, 12, -8),
+    ]);
+    scene.add(new THREE.Line(geo, gridMat));
+  }
+
+  // Center line (stereo center)
+  const centerMat = new THREE.LineBasicMaterial({ color: 0x00d9ce, transparent: true, opacity: 0.15 });
+  const centerGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0, 0, -8),
+    new THREE.Vector3(0, 12, -8),
+  ]);
+  scene.add(new THREE.Line(centerGeo, centerMat));
+
+  // L/R labels as sprites
+  addTextSprite('L', -12, -0.5, -8, '#00d9ce', 0.3);
+  addTextSprite('R', 12, -0.5, -8, '#00d9ce', 0.3);
+  addTextSprite('C', 0, -0.5, -8, '#00d9ce', 0.25);
+
+  // Frequency labels
+  addTextSprite('20 Hz', -13.5, 0, -8, '#8888aa', 0.2);
+  addTextSprite('100 Hz', -13.5, 1.5, -8, '#8888aa', 0.2);
+  addTextSprite('500 Hz', -13.5, 4, -8, '#8888aa', 0.2);
+  addTextSprite('1 kHz', -13.5, 6, -8, '#8888aa', 0.2);
+  addTextSprite('5 kHz', -13.5, 9, -8, '#8888aa', 0.2);
+  addTextSprite('20 kHz', -13.5, 12, -8, '#8888aa', 0.2);
+}
+
+function addTextSprite(text, x, y, z, color, scale) {
+  const canvas2 = document.createElement('canvas');
+  canvas2.width = 256;
+  canvas2.height = 64;
+  const ctx2 = canvas2.getContext('2d');
+  ctx2.font = 'bold 32px Inter, sans-serif';
+  ctx2.fillStyle = color;
+  ctx2.textAlign = 'center';
+  ctx2.textBaseline = 'middle';
+  ctx2.fillText(text, 128, 32);
+
+  const tex = new THREE.CanvasTexture(canvas2);
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.7 });
+  const sprite = new THREE.Sprite(mat);
+  sprite.position.set(x, y, z);
+  sprite.scale.set(scale * 4, scale, 1);
+  scene.add(sprite);
+}
+
+function createAxisLabels() {
+  // Left speaker
+  addTextSprite('🔊', -14, 6, 0, '#ffffff', 0.5);
+  // Right speaker
+  addTextSprite('🔊', 14, 6, 0, '#ffffff', 0.5);
+}
+
+// ----- Build 3D Element Meshes -----
+function buildElementMeshes() {
+  // Remove old meshes
+  elementMeshes.forEach(m => { scene.remove(m); if(m.glowMesh) scene.remove(m.glowMesh); });
+  elementMeshes = [];
+
+  detectedElements.forEach((el, i) => {
+    const size = 0.3 + (el.normalizedVol || 0.5) * 1.8;
+
+    // Main sphere
+    const geo = new THREE.SphereGeometry(size, 32, 32);
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(el.color),
+      metalness: 0.1,
+      roughness: 0.3,
+      clearcoat: 0.5,
+      clearcoatRoughness: 0.2,
+      emissive: new THREE.Color(el.color),
+      emissiveIntensity: 0.15,
+      transparent: true,
+      opacity: 0.85,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+
+    // Position: X = pan (-1 to 1 mapped to -10 to 10)
+    //           Y = frequency height
+    //           Z = slight depth variation
+    const x = el.pan * 10;
+    const y = el.yPos * 12;
+    const z = (Math.random() - 0.5) * 4;
+
+    mesh.position.set(x, y, z);
+    mesh.userData = { element: el, baseY: y, baseSize: size, index: i };
+
+    scene.add(mesh);
+
+    // Glow effect
+    const glowGeo = new THREE.SphereGeometry(size * 1.3, 16, 16);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(el.color),
+      transparent: true,
+      opacity: 0.08,
+    });
+    const glowMesh = new THREE.Mesh(glowGeo, glowMat);
+    glowMesh.position.copy(mesh.position);
+    scene.add(glowMesh);
+    mesh.glowMesh = glowMesh;
+
+    // Label
+    const label = addTextSprite(el.name, x, y + size + 0.4, z, el.color, 0.22);
+    mesh.labelSprite = label;
+
+    // Shadow on floor
+    const shadowGeo = new THREE.CircleGeometry(size * 0.8, 16);
+    const shadowMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(el.color),
+      transparent: true,
+      opacity: 0.1,
+    });
+    const shadowMesh = new THREE.Mesh(shadowGeo, shadowMat);
+    shadowMesh.rotation.x = -Math.PI / 2;
+    shadowMesh.position.set(x, 0.01, z);
+    scene.add(shadowMesh);
+    mesh.shadowMesh = shadowMesh;
+
+    // Vertical line from floor to element
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x, 0, z),
+      new THREE.Vector3(x, y, z),
+    ]);
+    const lineMat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(el.color),
+      transparent: true,
+      opacity: 0.12,
+    });
+    const line = new THREE.Line(lineGeo, lineMat);
+    scene.add(line);
+    mesh.stemLine = line;
+
+    elementMeshes.push(mesh);
+  });
+}
+
+// ----- Animation Loop -----
+function startVisualization() {
+  if (animationId) cancelAnimationFrame(animationId);
+
+  function animate() {
+    animationId = requestAnimationFrame(animate);
+
+    const time = clock.getElapsedTime();
+
+    // Camera orbit
+    if (autoRotate) {
+      cameraAngle += 0.002 * (settings.rotation / 50);
+    }
+
+    const dist = 15 + (200 - settings.zoom) * 0.1;
+    const elev = settings.elevation * Math.PI / 180;
+
+    camera.position.x = Math.sin(cameraAngle) * dist * Math.cos(elev);
+    camera.position.z = Math.cos(cameraAngle) * dist * Math.cos(elev);
+    camera.position.y = 4 + Math.sin(elev) * dist * 0.5;
+    camera.lookAt(0, 4, 0);
+
+    // Animate meshes
+    elementMeshes.forEach(mesh => {
+      const ud = mesh.userData;
+      // Gentle floating
+      mesh.position.y = ud.baseY + Math.sin(time * 0.8 + ud.index * 1.5) * 0.15;
+
+      // Subtle pulse
+      const pulse = 1 + Math.sin(time * 1.2 + ud.index * 2) * 0.03;
+      mesh.scale.setScalar(pulse);
+
+      // Update glow
+      if (mesh.glowMesh) {
+        mesh.glowMesh.position.copy(mesh.position);
+        mesh.glowMesh.scale.setScalar(pulse);
+      }
+    });
+
+    // Raycasting for hover
+    raycaster.setFromCamera(mouseVec, camera);
+    const intersects = raycaster.intersectObjects(elementMeshes);
+
+    if (hoveredMesh && hoveredMesh !== (intersects[0]?.object)) {
+      hoveredMesh.material.emissiveIntensity = 0.15;
+      hoveredMesh = null;
+      hideTooltip();
+    }
+
+    if (intersects.length > 0) {
+      hoveredMesh = intersects[0].object;
+      hoveredMesh.material.emissiveIntensity = 0.5;
+      showTooltip(hoveredMesh);
+    }
+
+    // Update progress bar
+    if (isPlaying && audioBuffer) {
+      const elapsed = audioCtx.currentTime - playStartTime + playOffset;
+      const pct = Math.min(100, (elapsed / audioBuffer.duration) * 100);
+      $('progressBar').style.width = pct + '%';
+
+      if (elapsed >= audioBuffer.duration) {
+        stopPlayback();
+      }
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  animate();
+}
+
+// ----- Mouse / Tooltip -----
+function onMouseMove(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouseVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  // Move tooltip
+  const tooltip = $('tooltip');
+  tooltip.style.left = (e.clientX - rect.left + 16) + 'px';
+  tooltip.style.top = (e.clientY - rect.top - 20) + 'px';
+}
+
+function showTooltip(mesh) {
+  const el = mesh.userData.element;
+  const tooltip = $('tooltip');
+  tooltip.style.display = 'block';
+  tooltip.querySelector('.tt-name').textContent = el.name;
+  tooltip.querySelector('.tt-name').style.color = el.color;
+  $('ttVol').textContent = Math.round((el.normalizedVol || 0) * 100) + '%';
+  $('ttPan').textContent = el.pan < -0.1 ? `L${Math.round(Math.abs(el.pan)*100)}%` :
+                           el.pan > 0.1 ? `R${Math.round(el.pan*100)}%` : 'Centre';
+  $('ttFreq').textContent = formatFreqRange(el.freqRange);
+}
+
+function hideTooltip() {
+  $('tooltip').style.display = 'none';
+}
+
+function formatFreqRange(range) {
+  const fmt = f => f >= 1000 ? (f/1000).toFixed(1) + 'k' : f + '';
+  return fmt(range[0]) + ' - ' + fmt(range[1]) + ' Hz';
+}
+
+// ----- Playback -----
+$('btnPlay').addEventListener('click', startPlayback);
+$('btnPause').addEventListener('click', stopPlayback);
+$('btnLive').addEventListener('click', toggleLiveMode);
+
+function startPlayback() {
+  if (!audioBuffer || isPlaying) return;
+
+  const ctx = getAudioContext();
+  ctx.resume();
+
+  sourceNode = ctx.createBufferSource();
+  sourceNode.buffer = audioBuffer;
+
+  // Create analysers for real-time visualization
+  splitter = ctx.createChannelSplitter(2);
+  analyserL = ctx.createAnalyser();
+  analyserR = ctx.createAnalyser();
+  analyserL.fftSize = 2048;
+  analyserR.fftSize = 2048;
+  analyserL.smoothingTimeConstant = settings.smoothing / 100;
+  analyserR.smoothingTimeConstant = settings.smoothing / 100;
+
+  sourceNode.connect(splitter);
+  sourceNode.connect(ctx.destination);
+  splitter.connect(analyserL, 0);
+  splitter.connect(analyserR, 1);
+
+  playStartTime = ctx.currentTime;
+  sourceNode.start(0, playOffset);
+  isPlaying = true;
+
+  $('btnPlay').classList.add('active');
+  $('btnPause').classList.remove('active');
+
+  if (liveMode) startLiveUpdate();
+
+  sourceNode.onended = () => {
+    if (isPlaying) {
+      isPlaying = false;
+      playOffset = 0;
+      $('progressBar').style.width = '0%';
+      $('btnPlay').classList.remove('active');
+    }
+  };
+}
+
+function stopPlayback() {
+  if (!isPlaying) return;
+
+  playOffset = audioCtx.currentTime - playStartTime + playOffset;
+  if (sourceNode) {
+    sourceNode.onended = null;
+    sourceNode.stop();
+  }
+  isPlaying = false;
+
+  $('btnPlay').classList.remove('active');
+  $('btnPause').classList.add('active');
+}
+
+function toggleLiveMode() {
+  liveMode = !liveMode;
+  $('btnLive').classList.toggle('active', liveMode);
+
+  if (liveMode && isPlaying) {
+    startLiveUpdate();
+  }
+}
+
+function startLiveUpdate() {
+  if (!liveMode || !isPlaying || !analyserL || !analyserR) return;
+
+  const bufferLength = analyserL.frequencyBinCount;
+  const dataL = new Float32Array(bufferLength);
+  const dataR = new Float32Array(bufferLength);
+
+  function update() {
+    if (!liveMode || !isPlaying) return;
+
+    analyserL.getFloatFrequencyData(dataL);
+    analyserR.getFloatFrequencyData(dataR);
+
+    const sampleRate = audioCtx.sampleRate;
+    const fftSize = analyserL.fftSize;
+
+    // Update each element's visual based on current spectrum
+    detectedElements.forEach((el, i) => {
+      const lowBin = Math.max(0, Math.floor(el.freqRange[0] * fftSize / sampleRate));
+      const highBin = Math.min(bufferLength - 1, Math.floor(el.freqRange[1] * fftSize / sampleRate));
+
+      let sumL = 0, sumR = 0, count = 0;
+      for (let b = lowBin; b <= highBin; b++) {
+        // Convert from dB to linear
+        sumL += Math.pow(10, dataL[b] / 20);
+        sumR += Math.pow(10, dataR[b] / 20);
+        count++;
+      }
+      if (count > 0) { sumL /= count; sumR /= count; }
+
+      const energy = (sumL + sumR) / 2;
+      const dynamicScale = Math.min(2, Math.max(0.3, energy * 5));
+
+      // Smoothly update mesh size
+      if (elementMeshes[i]) {
+        const mesh = elementMeshes[i];
+        const targetScale = mesh.userData.baseSize * dynamicScale / mesh.userData.baseSize;
+        mesh.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.15);
+
+        if (mesh.glowMesh) {
+          const glowScale = targetScale * 1.3;
+          mesh.glowMesh.scale.lerp(new THREE.Vector3(glowScale, glowScale, glowScale), 0.15);
+          mesh.glowMesh.material.opacity = Math.min(0.2, energy * 0.5);
+        }
+
+        // Update pan in real-time
+        const totalE = sumL + sumR;
+        if (totalE > 0.001) {
+          const livePan = (sumR - sumL) / totalE;
+          mesh.position.x += (livePan * 10 - mesh.position.x) * 0.05;
+        }
+      }
+    });
+
+    requestAnimationFrame(update);
+  }
+
+  update();
+}
+
+// ----- Resize -----
+function onResize() {
+  if (!renderer) return;
+  const wrap = $('canvas-wrap');
+  const w = wrap.clientWidth;
+  const h = wrap.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+}
+
+// ----- Slider Controls -----
+function setupSlider(id, key) {
+  const slider = $(id);
+  const valSpan = $('val' + key.charAt(0).toUpperCase() + key.slice(1));
+  slider.addEventListener('input', () => {
+    settings[key] = parseInt(slider.value);
+    valSpan.textContent = slider.value;
+  });
+}
+setupSlider('sliderRotation', 'rotation');
+setupSlider('sliderZoom', 'zoom');
+setupSlider('sliderElevation', 'elevation');
+setupSlider('sliderSensitivity', 'sensitivity');
+setupSlider('sliderSmoothing', 'smoothing');
+
+// ----- Reset -----
+$('btnReset').addEventListener('click', () => {
+  if (isPlaying) stopPlayback();
+  audioBuffer = null;
+  sourceNode = null;
+  detectedElements = [];
+  playOffset = 0;
+
+  if (renderer) {
+    // Clear scene objects
+    while(scene.children.length > 0) scene.remove(scene.children[0]);
+    elementMeshes = [];
+    renderer.dispose();
+    renderer = null;
+  }
+
+  $('emptyState').style.display = 'flex';
+  $('hudBottom').style.display = 'none';
+  $('transport').style.display = 'none';
+  $('panelInstruments').style.display = 'none';
+  $('instrumentList').innerHTML = '';
+  $('fileName').textContent = '';
+  $('progressBar').style.width = '0%';
+  canvas.width = 0;
+  canvas.height = 0;
+});
+
+// ----- Mouse drag for camera rotation -----
+let isDragging = false;
+let lastMouseX = 0;
+
+canvas.addEventListener('mousedown', e => {
+  isDragging = true;
+  lastMouseX = e.clientX;
+  autoRotate = false;
+});
+
+window.addEventListener('mouseup', () => {
+  isDragging = false;
+});
+
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const dx = e.clientX - lastMouseX;
+  cameraAngle += dx * 0.005;
+  lastMouseX = e.clientX;
+});
+
+canvas.addEventListener('dblclick', () => {
+  autoRotate = true;
+});
+
+// Mouse wheel zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  const slider = $('sliderZoom');
+  let val = parseInt(slider.value) + (e.deltaY > 0 ? -5 : 5);
+  val = Math.max(10, Math.min(200, val));
+  slider.value = val;
+  settings.zoom = val;
+  $('valZoom').textContent = val;
+}, { passive: false });
+
+})();
+</script>
+</body>
+</html>
