@@ -179,6 +179,9 @@
     width: 32px; height: 32px; border: 3px solid var(--border);
     border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
   }
+  .analyzing-overlay .progress-text {
+    font-size: 11px; color: var(--text-dim);
+  }
   @keyframes spin { to { transform: rotate(360deg); } }
 
   /* Canvas areas */
@@ -328,16 +331,16 @@
 
     <div class="panel">
       <h3>Analyse</h3>
-      <div class="slider-row"><label>Seuil</label><input type="range" id="sliderThreshold" min="1" max="100" value="40"></div>
+      <div class="slider-row"><label>Sensibilite</label><input type="range" id="sliderThreshold" min="1" max="100" value="50"></div>
     </div>
 
     <div class="panel">
       <h3>Axes</h3>
       <div style="font-size:10px;color:var(--text-dim);line-height:1.9">
-        <div><span style="color:var(--accent)">&#8594;</span> <b style="color:var(--text)">X</b> Stereo (L ↔ R)</div>
-        <div><span style="color:var(--accent2)">&#8593;</span> <b style="color:var(--text)">Y</b> Frequence (grave → aigu)</div>
+        <div><span style="color:var(--accent)">&#8594;</span> <b style="color:var(--text)">X</b> Stereo (L / R)</div>
+        <div><span style="color:var(--accent2)">&#8593;</span> <b style="color:var(--text)">Y</b> Frequence (grave / aigu)</div>
         <div><span style="color:var(--accent3)">&#9679;</span> <b style="color:var(--text)">Taille</b> Volume (dB)</div>
-        <div><span style="color:var(--yellow)">&#8599;</span> <b style="color:var(--text)">Z</b> Profondeur (dry → wet)</div>
+        <div><span style="color:var(--yellow)">&#8599;</span> <b style="color:var(--text)">Z</b> Profondeur (dry / wet)</div>
       </div>
     </div>
   </div>
@@ -353,7 +356,7 @@
       <div><kbd>Clic G</kbd> Orbite &nbsp; <kbd>Clic D</kbd> Pan &nbsp; <kbd>Molette</kbd> Zoom</div>
     </div>
     <div class="hud-bottom" id="hud0" style="display:none">
-      <span>← L — R →</span><span>↓ Grave — Aigu ↑</span><span>Taille = Volume</span>
+      <span>&#8592; L &#8212; R &#8594;</span><span>&#8595; Grave &#8212; Aigu &#8593;</span><span>Taille = Volume</span>
     </div>
     <div class="transport" id="transport0" style="display:none">
       <button class="btnPlay" data-slot="0" title="Play"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
@@ -395,21 +398,21 @@
 'use strict';
 
 // ======== INSTRUMENT DEFINITIONS ========
-// Each has non-overlapping "exclusive" freq bands + transient flag for percussive detection
+// Redesigned: fewer instruments, stricter bands, HPSS-aware classification
 const INSTRUMENT_DEFS = [
-  { id:'sub',    name:'Sub Bass',      color:'#7c5cfc', freq:[20,60],      yPos:0.03, depth:0.3, transient:false, exclusive:[20,55] },
-  { id:'kick',   name:'Kick',          color:'#d4a053', freq:[40,120],     yPos:0.10, depth:0.15,transient:true,  exclusive:[55,110] },
-  { id:'bass',   name:'Bass',          color:'#00c9a7', freq:[60,250],     yPos:0.18, depth:0.2, transient:false, exclusive:[110,250] },
-  { id:'snare',  name:'Snare',         color:'#e63946', freq:[150,1000],   yPos:0.38, depth:0.25,transient:true,  exclusive:[180,400] },
-  { id:'keys',   name:'Keys / Piano',  color:'#f4a261', freq:[200,2000],   yPos:0.48, depth:0.45,transient:false, exclusive:[400,900] },
-  { id:'vocal',  name:'Lead Vocal',    color:'#a78bfa', freq:[250,4000],   yPos:0.55, depth:0.1, transient:false, exclusive:[900,2500] },
-  { id:'guitar', name:'Guitare',       color:'#2a9d8f', freq:[200,5000],   yPos:0.50, depth:0.4, transient:false, exclusive:[2500,3500] },
-  { id:'clap',   name:'Clap / Perc',   color:'#ffd166', freq:[500,4000],   yPos:0.54, depth:0.3, transient:true,  exclusive:[3500,5000] },
-  { id:'bgv',    name:'BGV / Choeurs', color:'#e91e8c', freq:[300,5000],   yPos:0.60, depth:0.6, transient:false, exclusive:[5000,6500] },
-  { id:'synth',  name:'Synth / Pad',   color:'#4cc9f0', freq:[150,8000],   yPos:0.52, depth:0.55,transient:false, exclusive:[6500,8000] },
-  { id:'hihat',  name:'Hi-Hats',       color:'#b5e48c', freq:[5000,16000], yPos:0.82, depth:0.2, transient:true,  exclusive:[8000,13000] },
-  { id:'cymbal', name:'Cymbales',      color:'#d0d0d0', freq:[4000,18000], yPos:0.90, depth:0.35,transient:false, exclusive:[13000,17000] },
-  { id:'air',    name:'Air / Brillance',color:'#f0f0ff', freq:[10000,20000],yPos:0.96, depth:0.7, transient:false, exclusive:[17000,20000] },
+  { id:'sub',    name:'Sub Bass',      color:'#7c5cfc', freqRange:[20,80],    yPos:0.04, depth:0.3, type:'harmonic',   bandHz:[20,80] },
+  { id:'kick',   name:'Kick',          color:'#d4a053', freqRange:[40,150],   yPos:0.10, depth:0.15,type:'percussive', bandHz:[30,150] },
+  { id:'bass',   name:'Bass',          color:'#00c9a7', freqRange:[60,300],   yPos:0.20, depth:0.2, type:'harmonic',   bandHz:[80,300] },
+  { id:'snare',  name:'Snare',         color:'#e63946', freqRange:[150,1000], yPos:0.38, depth:0.25,type:'percussive', bandHz:[150,900] },
+  { id:'keys',   name:'Keys / Piano',  color:'#f4a261', freqRange:[200,4000], yPos:0.48, depth:0.45,type:'harmonic',   bandHz:[300,2000] },
+  { id:'vocal',  name:'Lead Vocal',    color:'#a78bfa', freqRange:[200,6000], yPos:0.55, depth:0.1, type:'harmonic',   bandHz:[250,4500] },
+  { id:'guitar', name:'Guitare',       color:'#2a9d8f', freqRange:[80,5000],  yPos:0.50, depth:0.4, type:'harmonic',   bandHz:[200,3500] },
+  { id:'clap',   name:'Clap / Perc',   color:'#ffd166', freqRange:[300,8000], yPos:0.54, depth:0.3, type:'percussive', bandHz:[800,8000] },
+  { id:'bgv',    name:'BGV / Choeurs', color:'#e91e8c', freqRange:[300,6000], yPos:0.60, depth:0.6, type:'harmonic',   bandHz:[400,5000] },
+  { id:'synth',  name:'Synth / Pad',   color:'#4cc9f0', freqRange:[80,10000], yPos:0.52, depth:0.55,type:'harmonic',   bandHz:[150,8000] },
+  { id:'hihat',  name:'Hi-Hats',       color:'#b5e48c', freqRange:[5000,18000],yPos:0.82, depth:0.2, type:'percussive', bandHz:[5000,16000] },
+  { id:'cymbal', name:'Cymbales',      color:'#d0d0d0', freqRange:[3000,20000],yPos:0.90, depth:0.35,type:'percussive', bandHz:[3000,18000] },
+  { id:'air',    name:'Air / Brillance',color:'#f0f0ff', freqRange:[8000,20000],yPos:0.96, depth:0.7, type:'harmonic',   bandHz:[10000,20000] },
 ];
 
 const FREQ_ZONES = [
@@ -421,29 +424,29 @@ const FREQ_ZONES = [
   { label:'Air',      color:'#f87171', y0:0.86, y1:1.0  },
 ];
 
-// Compact scene so elements fill more space
-const SH = 8;   // scene height
-const SW = 6;   // scene width (half)
-const SD = 5;   // scene depth
+// Compact scene
+const SH = 8;
+const SW = 6;
+const SD = 5;
 
 // ======== STATE (per slot) ========
 const slots = [
   { audioCtx:null, audioBuffer:null, source:null, analyserL:null, analyserR:null, splitter:null,
     isPlaying:false, playStart:0, playOff:0, elements:[], hiddenIds:new Set(), liveMode:false,
-    scene:null, camera:null, renderer:null, clock:null, groups:[], animId:null,
+    scene:null, camera:null, renderer:null, groups:[], animId:null,
     camDist:14, camTheta:0, camPhi:25*Math.PI/180, camTarget:new THREE.Vector3(0,2.5,0),
     dragging:false, panning:false, lastX:0, lastY:0, hovered:null },
   { audioCtx:null, audioBuffer:null, source:null, analyserL:null, analyserR:null, splitter:null,
     isPlaying:false, playStart:0, playOff:0, elements:[], hiddenIds:new Set(), liveMode:false,
-    scene:null, camera:null, renderer:null, clock:null, groups:[], animId:null,
+    scene:null, camera:null, renderer:null, groups:[], animId:null,
     camDist:14, camTheta:0, camPhi:25*Math.PI/180, camTarget:new THREE.Vector3(0,2.5,0),
     dragging:false, panning:false, lastX:0, lastY:0, hovered:null },
 ];
 
 let compareMode = false;
 let activeSlot = 0;
-let customColors = {}; // id -> color override
-let thresholdSetting = 40;
+let customColors = {};
+let sensitivitySetting = 50;
 
 const $ = id => document.getElementById(id);
 const mouse = new THREE.Vector2(-999,-999);
@@ -470,168 +473,447 @@ async function loadFile(slot, file) {
   const s = slots[slot];
   if (!s.audioCtx) s.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-  showAnalyzing(slot, true);
+  showAnalyzing(slot, true, 'Decodage audio...');
   try {
     const buf = await file.arrayBuffer();
     s.audioBuffer = await s.audioCtx.decodeAudioData(buf);
     s.hiddenIds.clear();
-    analyzeAudio(slot);
+    showAnalyzing(slot, true, 'Analyse spectrale STFT...');
+    // Run analysis async to not block UI
+    await new Promise(r => setTimeout(r, 50));
+    analyzeAudioAdvanced(slot);
     $('emptyState'+slot).style.display = 'none';
     $('transport'+slot).style.display = 'flex';
     if(slot===0) { $('hud0').style.display='flex'; $('controlsHelp0').style.display='block'; $('panelInstruments').style.display='block'; }
     initScene(slot);
     buildMeshes(slot);
-    startAnim(slot);
+    startRenderLoop(slot);
     if(slot===activeSlot) updateInstrumentList();
   } catch(err) {
     console.error(err);
-    alert('Erreur chargement audio');
+    alert('Erreur chargement audio: ' + err.message);
   }
   showAnalyzing(slot, false);
 }
 
-function showAnalyzing(slot, show) {
+function showAnalyzing(slot, show, msg) {
   const wrap = $('canvasWrap'+slot);
   let el = wrap.querySelector('.analyzing-overlay');
-  if(show && !el) { el=document.createElement('div'); el.className='analyzing-overlay'; el.innerHTML='<div class="spinner"></div><p>Analyse...</p>'; wrap.appendChild(el); }
-  else if(!show && el) el.remove();
+  if(show && !el) {
+    el=document.createElement('div');
+    el.className='analyzing-overlay';
+    el.innerHTML=`<div class="spinner"></div><p class="progress-text">${msg||'Analyse...'}</p>`;
+    wrap.appendChild(el);
+  } else if(show && el) {
+    const pt = el.querySelector('.progress-text');
+    if(pt) pt.textContent = msg||'Analyse...';
+  } else if(!show && el) {
+    el.remove();
+  }
 }
 
-// ======== IMPROVED AUDIO ANALYSIS ========
-function analyzeAudio(slot) {
+// ================================================================
+// ======== ADVANCED AUDIO ANALYSIS WITH STFT + HPSS ========
+// ================================================================
+
+function analyzeAudioAdvanced(slot) {
   const s = slots[slot];
   const buf = s.audioBuffer;
   if(!buf) return;
 
   const sr = buf.sampleRate;
-  const fftSize = 8192;
   const dL = buf.getChannelData(0);
-  const dR = buf.numberOfChannels>1 ? buf.getChannelData(1) : dL;
+  const dR = buf.numberOfChannels > 1 ? buf.getChannelData(1) : dL;
   const len = dL.length;
-  const binCount = fftSize/2;
+
+  // STFT parameters
+  const fftSize = 4096;
+  const hopSize = fftSize / 2; // 50% overlap
+  const binCount = fftSize / 2;
+  const numFrames = Math.min(200, Math.floor((len - fftSize) / hopSize));
+  if(numFrames < 2) return;
 
   // Hann window
   const win = new Float32Array(fftSize);
-  for(let i=0;i<fftSize;i++) win[i] = 0.5*(1-Math.cos(2*Math.PI*i/(fftSize-1)));
+  for(let i = 0; i < fftSize; i++) win[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1)));
 
-  const hop = fftSize;
-  const nWin = Math.min(Math.floor(len/hop), 100);
+  // ---- Step 1: Compute full STFT magnitude spectrogram ----
+  // spectrogramL[frame][bin], spectrogramR[frame][bin]
+  const spectrogramL = [];
+  const spectrogramR = [];
 
-  // Compute full spectrum average first
-  const fullSpecL = new Float64Array(binCount);
-  const fullSpecR = new Float64Array(binCount);
-  let specFrames = 0;
-
-  // For transient detection: compute energy variance over time per band
-  const accum = INSTRUMENT_DEFS.map(d => ({
-    ...d,
-    lowBin: Math.max(1, Math.floor(d.exclusive[0]*fftSize/sr)),
-    highBin: Math.min(binCount-1, Math.floor(d.exclusive[1]*fftSize/sr)),
-    energiesL: [], energiesR: [],
-  }));
-
-  for(let w=0; w<nWin; w++) {
-    const off = w*hop;
-    const rL = new Float32Array(fftSize);
-    const rR = new Float32Array(fftSize);
-    for(let i=0; i<fftSize && off+i<len; i++) { rL[i]=dL[off+i]*win[i]; rR[i]=dR[off+i]*win[i]; }
-
-    for(const a of accum) {
-      const step = Math.max(1, Math.floor((a.highBin-a.lowBin)/16));
-      let sL=0, sR=0, bc=0;
-      for(let k=a.lowBin; k<=a.highBin; k+=step) {
-        const freq = 2*Math.PI*k/fftSize;
-        const coeff = 2*Math.cos(freq);
-        let s1L=0,s2L=0,s1R=0,s2R=0;
-        for(let n=0;n<fftSize;n++) {
-          let s0L=rL[n]+coeff*s1L-s2L; s2L=s1L; s1L=s0L;
-          let s0R=rR[n]+coeff*s1R-s2R; s2R=s1R; s1R=s0R;
-        }
-        sL += Math.sqrt(s1L*s1L+s2L*s2L-coeff*s1L*s2L);
-        sR += Math.sqrt(s1R*s1R+s2R*s2R-coeff*s1R*s2R);
-        bc++;
-      }
-      a.energiesL.push(sL/(bc||1));
-      a.energiesR.push(sR/(bc||1));
-    }
+  for(let f = 0; f < numFrames; f++) {
+    const offset = f * hopSize;
+    // Apply window and compute FFT via DFT for key bins
+    // For efficiency, we compute the full spectrum using a radix-2 FFT approach
+    const magL = computeFFTMagnitude(dL, offset, fftSize, win);
+    const magR = computeFFTMagnitude(dR, offset, fftSize, win);
+    spectrogramL.push(magL);
+    spectrogramR.push(magR);
   }
 
-  // Compute total RMS energy across all bands
-  let totalEnergy = 0;
-  const bandEnergies = [];
-  for(const a of accum) {
-    const avgL = a.energiesL.reduce((s,v)=>s+v,0)/(a.energiesL.length||1);
-    const avgR = a.energiesR.reduce((s,v)=>s+v,0)/(a.energiesR.length||1);
-    a.avgL = avgL;
-    a.avgR = avgR;
-    a.avgEnergy = (avgL+avgR)/2;
-    totalEnergy += a.avgEnergy;
-    bandEnergies.push(a.avgEnergy);
+  // ---- Step 2: HPSS (Harmonic/Percussive Source Separation) ----
+  // Median filtering: horizontal median = harmonic, vertical median = percussive
+  const medianKernel = 17; // must be odd
+  const halfK = Math.floor(medianKernel / 2);
 
-    // Transient: compute variance (high variance = percussive)
-    if(a.transient) {
-      const allE = a.energiesL.map((v,i)=>(v+a.energiesR[i])/2);
-      const mean = allE.reduce((s,v)=>s+v,0)/(allE.length||1);
-      const variance = allE.reduce((s,v)=>s+(v-mean)*(v-mean),0)/(allE.length||1);
-      a.transientScore = mean > 0 ? Math.sqrt(variance)/mean : 0; // coefficient of variation
-    } else {
-      a.transientScore = 0;
+  // Compute combined spectrogram (mono) for HPSS
+  const specMono = [];
+  for(let f = 0; f < numFrames; f++) {
+    const mono = new Float32Array(binCount);
+    for(let b = 0; b < binCount; b++) {
+      mono[b] = (spectrogramL[f][b] + spectrogramR[f][b]) / 2;
     }
+    specMono.push(mono);
   }
 
-  // Dynamic threshold: use relative energy
-  // An element is "present" if its exclusive band has significant energy relative to total
-  const threshold = (thresholdSetting / 100) * 0.15; // 0-15% of total energy
+  // Harmonic mask: median filter along time axis (horizontal) for each bin
+  const harmonicSpec = [];
+  for(let f = 0; f < numFrames; f++) {
+    harmonicSpec.push(new Float32Array(binCount));
+  }
+
+  // Percussive mask: median filter along frequency axis (vertical) for each frame
+  const percussiveSpec = [];
+  for(let f = 0; f < numFrames; f++) {
+    percussiveSpec.push(new Float32Array(binCount));
+  }
+
+  // Horizontal median (harmonic) - along time for each frequency bin
+  for(let b = 0; b < binCount; b++) {
+    const timeSlice = new Float32Array(numFrames);
+    for(let f = 0; f < numFrames; f++) timeSlice[f] = specMono[f][b];
+    const medH = medianFilter1D(timeSlice, medianKernel);
+    for(let f = 0; f < numFrames; f++) harmonicSpec[f][b] = medH[f];
+  }
+
+  // Vertical median (percussive) - along frequency for each time frame
+  for(let f = 0; f < numFrames; f++) {
+    const freqSlice = specMono[f]; // already Float32Array
+    const medV = medianFilter1D(freqSlice, medianKernel);
+    for(let b = 0; b < binCount; b++) percussiveSpec[f][b] = medV[b];
+  }
+
+  // Soft mask: H_mask = H^2 / (H^2 + P^2), P_mask = P^2 / (H^2 + P^2)
+  const harmonicMasked = [];
+  const percussiveMasked = [];
+  for(let f = 0; f < numFrames; f++) {
+    const hm = new Float32Array(binCount);
+    const pm = new Float32Array(binCount);
+    for(let b = 0; b < binCount; b++) {
+      const h2 = harmonicSpec[f][b] * harmonicSpec[f][b];
+      const p2 = percussiveSpec[f][b] * percussiveSpec[f][b];
+      const denom = h2 + p2 + 1e-10;
+      hm[b] = specMono[f][b] * (h2 / denom);
+      pm[b] = specMono[f][b] * (p2 / denom);
+    }
+    harmonicMasked.push(hm);
+    percussiveMasked.push(pm);
+  }
+
+  // ---- Step 3: Compute spectral features per instrument band ----
+  const sensitivity = sensitivitySetting / 100; // 0 to 1
+
+  // Total energy in harmonic + percussive
+  let totalHarmonicEnergy = 0;
+  let totalPercussiveEnergy = 0;
+  for(let f = 0; f < numFrames; f++) {
+    for(let b = 0; b < binCount; b++) {
+      totalHarmonicEnergy += harmonicMasked[f][b];
+      totalPercussiveEnergy += percussiveMasked[f][b];
+    }
+  }
+  totalHarmonicEnergy /= numFrames;
+  totalPercussiveEnergy /= numFrames;
+  const totalEnergy = totalHarmonicEnergy + totalPercussiveEnergy;
 
   s.elements = [];
-  for(const a of accum) {
-    const relEnergy = totalEnergy > 0 ? a.avgEnergy / totalEnergy : 0;
 
-    // For transient elements, require higher transient score
+  for(const def of INSTRUMENT_DEFS) {
+    const loBin = Math.max(1, Math.round(def.bandHz[0] * fftSize / sr));
+    const hiBin = Math.min(binCount - 1, Math.round(def.bandHz[1] * fftSize / sr));
+    if(loBin >= hiBin) continue;
+
+    const isPerc = def.type === 'percussive';
+    const spec = isPerc ? percussiveMasked : harmonicMasked;
+    const refTotal = isPerc ? totalPercussiveEnergy : totalHarmonicEnergy;
+
+    // Average energy in this band from the appropriate HPSS component
+    let bandEnergy = 0;
+    let bandEnergyL = 0;
+    let bandEnergyR = 0;
+    const frameEnergies = new Float32Array(numFrames);
+
+    for(let f = 0; f < numFrames; f++) {
+      let fe = 0;
+      let feL = 0;
+      let feR = 0;
+      for(let b = loBin; b <= hiBin; b++) {
+        fe += spec[f][b];
+        // Use original stereo spectrograms with HPSS mask ratio
+        const h2 = harmonicSpec[f][b] * harmonicSpec[f][b];
+        const p2 = percussiveSpec[f][b] * percussiveSpec[f][b];
+        const denom = h2 + p2 + 1e-10;
+        const maskRatio = isPerc ? (p2 / denom) : (h2 / denom);
+        feL += spectrogramL[f][b] * maskRatio;
+        feR += spectrogramR[f][b] * maskRatio;
+      }
+      frameEnergies[f] = fe;
+      bandEnergy += fe;
+      bandEnergyL += feL;
+      bandEnergyR += feR;
+    }
+    bandEnergy /= numFrames;
+    bandEnergyL /= numFrames;
+    bandEnergyR /= numFrames;
+
+    // Relative energy: how much of the relevant HPSS component is in this band
+    const relEnergy = refTotal > 0 ? bandEnergy / refTotal : 0;
+
+    // Spectral centroid in this band (average frequency weighted by energy)
+    let centroidSum = 0;
+    let centroidWeight = 0;
+    for(let f = 0; f < numFrames; f++) {
+      for(let b = loBin; b <= hiBin; b++) {
+        const freq = b * sr / fftSize;
+        centroidSum += freq * spec[f][b];
+        centroidWeight += spec[f][b];
+      }
+    }
+    const centroid = centroidWeight > 0 ? centroidSum / centroidWeight : 0;
+
+    // Spectral flatness (geometric mean / arithmetic mean) - measures tonality
+    // Lower = more tonal, Higher = more noise-like
+    let logSum = 0;
+    let linSum = 0;
+    let flatCount = 0;
+    for(let f = 0; f < numFrames; f++) {
+      for(let b = loBin; b <= hiBin; b++) {
+        const v = spec[f][b] + 1e-10;
+        logSum += Math.log(v);
+        linSum += v;
+        flatCount++;
+      }
+    }
+    const flatness = flatCount > 0 ? Math.exp(logSum / flatCount) / (linSum / flatCount + 1e-10) : 0;
+
+    // Temporal variance (onset strength for percussive detection)
+    const meanFrameE = frameEnergies.reduce((a, b) => a + b, 0) / numFrames;
+    let variance = 0;
+    for(let f = 0; f < numFrames; f++) {
+      const d = frameEnergies[f] - meanFrameE;
+      variance += d * d;
+    }
+    variance /= numFrames;
+    const coeffOfVariation = meanFrameE > 0 ? Math.sqrt(variance) / meanFrameE : 0;
+
+    // Spectral flux (onset detection - sum of positive frequency changes)
+    let fluxTotal = 0;
+    for(let f = 1; f < numFrames; f++) {
+      let flux = 0;
+      for(let b = loBin; b <= hiBin; b++) {
+        const diff = spec[f][b] - spec[f-1][b];
+        if(diff > 0) flux += diff;
+      }
+      fluxTotal += flux;
+    }
+    const avgFlux = fluxTotal / (numFrames - 1);
+    const normalizedFlux = bandEnergy > 0 ? avgFlux / bandEnergy : 0;
+
+    // ---- Confidence scoring ----
+    // Dynamic threshold based on sensitivity
+    const baseThreshold = 0.02 + (1 - sensitivity) * 0.12; // 0.02 to 0.14
+
     let confidence = 0;
-    if(a.transient) {
-      // Percussive: need both energy AND transient character
-      const transientOk = a.transientScore > 0.3;
-      if(relEnergy > threshold * 0.5 && transientOk) {
-        confidence = Math.min(1, relEnergy / 0.1) * Math.min(1, a.transientScore / 0.8);
+
+    if(isPerc) {
+      // Percussive elements need:
+      // 1. Enough energy in the percussive HPSS component
+      // 2. High temporal variance (transient character)
+      // 3. High spectral flux (onsets)
+      const energyOk = relEnergy > baseThreshold * 0.5;
+      const transientOk = coeffOfVariation > 0.4;
+      const fluxOk = normalizedFlux > 0.1;
+
+      if(energyOk && (transientOk || fluxOk)) {
+        const energyScore = Math.min(1, relEnergy / 0.15);
+        const transientScore = Math.min(1, coeffOfVariation / 1.0);
+        const fluxScore = Math.min(1, normalizedFlux / 0.5);
+        confidence = energyScore * 0.4 + Math.max(transientScore, fluxScore) * 0.6;
       }
     } else {
-      // Tonal: just need energy above threshold
-      if(relEnergy > threshold) {
-        confidence = Math.min(1, relEnergy / 0.15);
+      // Harmonic elements need:
+      // 1. Enough energy in the harmonic HPSS component
+      // 2. Lower spectral flatness (more tonal)
+      const energyOk = relEnergy > baseThreshold;
+      const tonal = flatness < 0.5; // fairly tonal
+
+      if(energyOk) {
+        const energyScore = Math.min(1, relEnergy / 0.2);
+        const tonalBonus = tonal ? 1.0 : 0.5;
+        confidence = energyScore * tonalBonus;
       }
     }
 
-    if(confidence > 0.1) {
-      const total = a.avgL + a.avgR;
-      const pan = total > 0 ? (a.avgR - a.avgL) / total : 0;
-      s.elements.push({
-        id: a.id,
-        name: a.name,
-        color: getColor(a.id),
-        freq: a.freq,
-        exclusive: a.exclusive,
-        yPos: a.yPos,
-        depth: a.depth,
-        transient: a.transient,
-        energy: a.avgEnergy,
-        relEnergy,
-        pan: Math.max(-1, Math.min(1, pan)),
-        volumeDb: 20*Math.log10(a.avgEnergy+1e-10),
-        confidence,
-        transientScore: a.transientScore,
-      });
-    }
+    // Minimum confidence cutoff
+    const minConf = 0.08 + (1 - sensitivity) * 0.15;
+    if(confidence < minConf) continue;
+    confidence = Math.min(1, confidence);
+
+    // Pan from stereo energy
+    const totalLR = bandEnergyL + bandEnergyR;
+    const pan = totalLR > 0 ? (bandEnergyR - bandEnergyL) / totalLR : 0;
+
+    s.elements.push({
+      id: def.id,
+      name: def.name,
+      color: getColor(def.id),
+      freqRange: def.freqRange,
+      bandHz: def.bandHz,
+      yPos: def.yPos,
+      depth: def.depth,
+      defType: def.type,
+      energy: bandEnergy,
+      relEnergy,
+      pan: Math.max(-1, Math.min(1, pan)),
+      volumeDb: 20 * Math.log10(bandEnergy + 1e-10),
+      confidence,
+      centroid,
+      flatness,
+      coeffOfVariation,
+      spectralFlux: normalizedFlux,
+    });
   }
 
+  // ---- Step 4: Resolve overlapping detections ----
+  // If vocal AND guitar AND keys AND synth AND bgv are all detected,
+  // it's likely just one source. Keep only the most confident ones.
+  resolveOverlaps(s.elements);
+
   // Normalize volumes
-  if(s.elements.length>0) {
-    const maxE = Math.max(...s.elements.map(e=>e.energy));
+  if(s.elements.length > 0) {
+    const maxE = Math.max(...s.elements.map(e => e.energy));
     s.elements.forEach(e => {
-      e.normalizedVol = Math.pow(e.energy/(maxE||1), 0.35);
+      e.normalizedVol = Math.pow(e.energy / (maxE || 1), 0.35);
       e.dbDisplay = e.volumeDb.toFixed(1);
     });
   }
+}
+
+// Resolve overlapping harmonic detections
+function resolveOverlaps(elements) {
+  // Group: tonal mid-range instruments that easily overlap
+  const midTonal = ['vocal', 'guitar', 'keys', 'synth', 'bgv'];
+  const midDetected = elements.filter(e => midTonal.includes(e.id));
+
+  // If more than 3 mid-tonal instruments detected, keep only top 2 by confidence
+  if(midDetected.length > 3) {
+    midDetected.sort((a, b) => b.confidence - a.confidence);
+    const toRemove = midDetected.slice(2).map(e => e.id);
+    for(let i = elements.length - 1; i >= 0; i--) {
+      if(toRemove.includes(elements[i].id)) elements.splice(i, 1);
+    }
+  }
+
+  // Group: sub-bass and kick often overlap
+  const lowDetected = elements.filter(e => ['sub', 'kick', 'bass'].includes(e.id));
+  if(lowDetected.length === 3) {
+    // If all three detected, check if sub is really distinct from bass
+    const sub = lowDetected.find(e => e.id === 'sub');
+    const bass = lowDetected.find(e => e.id === 'bass');
+    if(sub && bass && sub.confidence < bass.confidence * 0.5) {
+      const idx = elements.indexOf(sub);
+      if(idx >= 0) elements.splice(idx, 1);
+    }
+  }
+
+  // Group: hihat and cymbal overlap heavily
+  const hiDetected = elements.filter(e => ['hihat', 'cymbal'].includes(e.id));
+  if(hiDetected.length === 2) {
+    // Keep the more confident one
+    hiDetected.sort((a, b) => b.confidence - a.confidence);
+    if(hiDetected[1].confidence < hiDetected[0].confidence * 0.4) {
+      const idx = elements.indexOf(hiDetected[1]);
+      if(idx >= 0) elements.splice(idx, 1);
+    }
+  }
+}
+
+// ---- FFT via radix-2 Cooley-Tukey ----
+function computeFFTMagnitude(data, offset, fftSize, win) {
+  const n = fftSize;
+  const re = new Float32Array(n);
+  const im = new Float32Array(n);
+
+  // Apply window
+  for(let i = 0; i < n; i++) {
+    const idx = offset + i;
+    re[i] = idx < data.length ? data[idx] * win[i] : 0;
+    im[i] = 0;
+  }
+
+  // Bit reversal
+  let j = 0;
+  for(let i = 0; i < n; i++) {
+    if(i < j) {
+      let tmp = re[i]; re[i] = re[j]; re[j] = tmp;
+      tmp = im[i]; im[i] = im[j]; im[j] = tmp;
+    }
+    let m = n >> 1;
+    while(m >= 1 && j >= m) { j -= m; m >>= 1; }
+    j += m;
+  }
+
+  // FFT butterfly
+  for(let size = 2; size <= n; size *= 2) {
+    const halfSize = size / 2;
+    const angle = -2 * Math.PI / size;
+    const wRe = Math.cos(angle);
+    const wIm = Math.sin(angle);
+
+    for(let i = 0; i < n; i += size) {
+      let curRe = 1, curIm = 0;
+      for(let k = 0; k < halfSize; k++) {
+        const tRe = curRe * re[i + k + halfSize] - curIm * im[i + k + halfSize];
+        const tIm = curRe * im[i + k + halfSize] + curIm * re[i + k + halfSize];
+        re[i + k + halfSize] = re[i + k] - tRe;
+        im[i + k + halfSize] = im[i + k] - tIm;
+        re[i + k] += tRe;
+        im[i + k] += tIm;
+        const newCurRe = curRe * wRe - curIm * wIm;
+        curIm = curRe * wIm + curIm * wRe;
+        curRe = newCurRe;
+      }
+    }
+  }
+
+  // Compute magnitudes for first half (positive frequencies)
+  const mag = new Float32Array(n / 2);
+  for(let i = 0; i < n / 2; i++) {
+    mag[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]) / n;
+  }
+  return mag;
+}
+
+// 1D median filter
+function medianFilter1D(arr, kernelSize) {
+  const n = arr.length;
+  const half = Math.floor(kernelSize / 2);
+  const out = new Float32Array(n);
+  const buf = new Float32Array(kernelSize);
+
+  for(let i = 0; i < n; i++) {
+    let count = 0;
+    for(let k = -half; k <= half; k++) {
+      const idx = Math.max(0, Math.min(n - 1, i + k));
+      buf[count++] = arr[idx];
+    }
+    // Sort to find median
+    const slice = buf.subarray(0, count);
+    slice.sort();
+    out[i] = slice[Math.floor(count / 2)];
+  }
+  return out;
 }
 
 // ======== SIDEBAR ========
@@ -696,11 +978,9 @@ function updateInstrumentList() {
       const id = inp.dataset.id;
       customColors[id] = inp.value;
       saveColors();
-      // Update element color
       const el = s.elements.find(x=>x.id===id);
       if(el) el.color = inp.value;
       updateInstrumentList();
-      // Rebuild meshes to apply new color
       buildMeshes(activeSlot);
     });
   });
@@ -737,7 +1017,6 @@ function initScene(slot) {
   s.renderer.setClearColor(0x08080d);
   s.renderer.toneMapping = THREE.ACESFilmicToneMapping;
   s.renderer.toneMappingExposure = 1.2;
-  s.clock = new THREE.Clock();
 
   // Lights
   s.scene.add(new THREE.AmbientLight(0x505070, 0.6));
@@ -779,11 +1058,9 @@ function buildStage(sc) {
     const p = new THREE.Mesh(pg, pm); p.position.set(0,(y0+y1)/2,-SD/2-0.5);
     sc.add(p);
 
-    // Zone line
     const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-SW-1,y1,-SD/2-0.5), new THREE.Vector3(SW+1,y1,-SD/2-0.5)]);
     sc.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color:new THREE.Color(z.color), transparent:true, opacity:0.2 })));
 
-    // Zone label
     addLabel(sc, z.label, -SW-2.2, (y0+y1)/2, -SD/2-0.5, z.color, 0.28);
   });
 
@@ -831,38 +1108,7 @@ function addLabel(sc, text, x, y, z, color, scale) {
   return sp;
 }
 
-// ======== ELEMENT 3D SHAPES ========
-// Different geometry per type for better identification
-function getElementGeometry(el, size) {
-  const id = el.id;
-  if(id==='kick' || id==='sub') {
-    // Octahedron for bass/kick
-    return new THREE.OctahedronGeometry(size, 1);
-  }
-  if(id==='snare' || id==='clap') {
-    // Dodecahedron for percussive
-    return new THREE.DodecahedronGeometry(size, 0);
-  }
-  if(id==='hihat' || id==='cymbal') {
-    // Torus for cymbals/hihats
-    return new THREE.TorusGeometry(size*0.8, size*0.25, 8, 24);
-  }
-  if(id==='vocal' || id==='bgv') {
-    // Icosahedron for vocals
-    return new THREE.IcosahedronGeometry(size, 1);
-  }
-  if(id==='bass') {
-    // Box for bass
-    return new THREE.BoxGeometry(size*1.4, size*1.4, size*1.4);
-  }
-  if(id==='air') {
-    // Ring for air
-    return new THREE.TorusGeometry(size*0.7, size*0.15, 6, 32);
-  }
-  // Default sphere
-  return new THREE.SphereGeometry(size, 24, 24);
-}
-
+// ======== ELEMENT MESHES - CLEAN STATIC SPHERES ========
 function buildMeshes(slot) {
   const s = slots[slot];
   s.groups.forEach(g => s.scene.remove(g.group));
@@ -871,60 +1117,68 @@ function buildMeshes(slot) {
   s.elements.forEach((el, i) => {
     const grp = new THREE.Group();
 
-    const minS = 0.2, maxS = 1.4;
-    const size = minS + (el.normalizedVol||0.5) * (maxS-minS);
+    // Size based on volume
+    const minS = 0.25, maxS = 1.2;
+    const size = minS + (el.normalizedVol||0.5) * (maxS - minS);
 
+    // Position
     const x = el.pan * SW;
     const y = el.yPos * SH;
     const z = (0.5 - el.depth) * SD;
 
-    // Main mesh with distinct geometry
-    const geo = getElementGeometry(el, size);
+    // Simple clean sphere for all elements - no exotic shapes
+    const geo = new THREE.SphereGeometry(size, 32, 32);
     const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(el.color),
-      metalness: 0.08, roughness: 0.3, clearcoat: 0.5,
-      emissive: new THREE.Color(el.color), emissiveIntensity: 0.25,
-      transparent: true, opacity: 0.92 - el.depth*0.25,
+      metalness: 0.05,
+      roughness: 0.25,
+      clearcoat: 0.6,
+      clearcoatRoughness: 0.1,
+      emissive: new THREE.Color(el.color),
+      emissiveIntensity: 0.2,
+      transparent: true,
+      opacity: 0.92 - el.depth * 0.2,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    // Rotate torus shapes to face camera
-    if(el.id==='hihat'||el.id==='cymbal'||el.id==='air') mesh.rotation.x = Math.PI/2;
     grp.add(mesh);
 
-    // Glow
-    const glowGeo = new THREE.SphereGeometry(size*1.5, 12, 12);
-    const glowMat = new THREE.MeshBasicMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.05 });
-    const glow = new THREE.Mesh(glowGeo, glowMat);
-    grp.add(glow);
+    // Subtle glow ring at base
+    const ringGeo = new THREE.RingGeometry(size * 0.4, size * 0.7, 32);
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(el.color), transparent: true, opacity: 0.08, side: THREE.DoubleSide
+    });
+    const ring = new THREE.Mesh(ringGeo, ringMat);
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = -y + 0.01;
+    grp.add(ring);
 
-    // Label - BIGGER text
-    const lbl = addLabel(s.scene, el.name, 0, size+0.4, 0, el.color, 0.26);
+    // Label above - large and clear
+    const lbl = addLabel(s.scene, el.name, 0, size + 0.35, 0, el.color, 0.28);
     s.scene.remove(lbl);
     grp.add(lbl);
 
-    // dB label
-    const dbLbl = addLabel(s.scene, el.dbDisplay+'dB', 0, -(size+0.3), 0, '#888', 0.16);
+    // dB label below
+    const dbLbl = addLabel(s.scene, el.dbDisplay + 'dB', 0, -(size + 0.25), 0, '#888', 0.16);
     s.scene.remove(dbLbl);
     grp.add(dbLbl);
 
-    // Stem
-    const stGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-y,0), new THREE.Vector3(0,0,0)]);
-    const stMat = new THREE.LineDashedMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.12, dashSize:0.2, gapSize:0.15 });
+    // Vertical stem to floor
+    const stGeo = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(0, -y, 0),
+      new THREE.Vector3(0, 0, 0)
+    ]);
+    const stMat = new THREE.LineDashedMaterial({
+      color: new THREE.Color(el.color), transparent: true, opacity: 0.1,
+      dashSize: 0.2, gapSize: 0.15
+    });
     const stem = new THREE.Line(stGeo, stMat);
     stem.computeLineDistances();
     grp.add(stem);
 
-    // Floor ring
-    const shGeo = new THREE.RingGeometry(size*0.3, size*0.55, 20);
-    const shMat = new THREE.MeshBasicMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.06, side:THREE.DoubleSide });
-    const sh = new THREE.Mesh(shGeo, shMat);
-    sh.rotation.x=-Math.PI/2; sh.position.y=-y+0.01;
-    grp.add(sh);
-
     grp.position.set(x, y, z);
     s.scene.add(grp);
 
-    s.groups.push({ group:grp, mesh, glow, elId:el.id, element:el, baseY:y, baseSize:size, index:i });
+    s.groups.push({ group: grp, mesh, elId: el.id, element: el, baseY: y, baseSize: size });
   });
 
   updateVisibility(slot);
@@ -934,204 +1188,213 @@ function buildMeshes(slot) {
 function updateCam(slot) {
   const s = slots[slot];
   if(!s.camera) return;
-  const x = s.camDist*Math.sin(s.camTheta)*Math.cos(s.camPhi);
-  const y = s.camDist*Math.sin(s.camPhi);
-  const z = s.camDist*Math.cos(s.camTheta)*Math.cos(s.camPhi);
-  s.camera.position.set(s.camTarget.x+x, s.camTarget.y+y, s.camTarget.z+z);
+  const x = s.camDist * Math.sin(s.camTheta) * Math.cos(s.camPhi);
+  const y = s.camDist * Math.sin(s.camPhi);
+  const z = s.camDist * Math.cos(s.camTheta) * Math.cos(s.camPhi);
+  s.camera.position.set(s.camTarget.x + x, s.camTarget.y + y, s.camTarget.z + z);
   s.camera.lookAt(s.camTarget);
 }
 
 function syncSliders(slot) {
-  if(slot!==0) return;
+  if(slot !== 0) return;
   $('sliderZoom').value = Math.round(slots[0].camDist);
-  $('sliderElevation').value = Math.round(slots[0].camPhi*180/Math.PI);
-  $('sliderAngle').value = Math.round(slots[0].camTheta*180/Math.PI);
+  $('sliderElevation').value = Math.round(slots[0].camPhi * 180 / Math.PI);
+  $('sliderAngle').value = Math.round(slots[0].camTheta * 180 / Math.PI);
 }
 
 function setupCamControls(slot) {
-  const canvas = $('scene'+slot);
+  const canvas = $('scene' + slot);
   const s = slots[slot];
 
   canvas.addEventListener('mousedown', e => {
-    if(e.button===0) { s.dragging=true; s.lastX=e.clientX; s.lastY=e.clientY; }
-    if(e.button===2) { s.panning=true; s.lastX=e.clientX; s.lastY=e.clientY; }
+    if(e.button === 0) { s.dragging = true; s.lastX = e.clientX; s.lastY = e.clientY; }
+    if(e.button === 2) { s.panning = true; s.lastX = e.clientX; s.lastY = e.clientY; }
   });
   window.addEventListener('mousemove', e => {
     if(s.dragging) {
-      s.camTheta -= (e.clientX-s.lastX)*0.005;
-      s.camPhi = Math.max(-0.2, Math.min(Math.PI/2-0.05, s.camPhi+(e.clientY-s.lastY)*0.005));
-      s.lastX=e.clientX; s.lastY=e.clientY;
+      s.camTheta -= (e.clientX - s.lastX) * 0.005;
+      s.camPhi = Math.max(-0.2, Math.min(Math.PI/2 - 0.05, s.camPhi + (e.clientY - s.lastY) * 0.005));
+      s.lastX = e.clientX; s.lastY = e.clientY;
       syncSliders(slot);
     }
     if(s.panning) {
-      const dx=e.clientX-s.lastX, dy=e.clientY-s.lastY;
+      const dx = e.clientX - s.lastX, dy = e.clientY - s.lastY;
       const right = new THREE.Vector3();
       s.camera.getWorldDirection(right);
-      right.cross(new THREE.Vector3(0,1,0)).normalize();
-      const ps = s.camDist*0.0015;
-      s.camTarget.add(right.multiplyScalar(-dx*ps));
-      s.camTarget.y += dy*ps;
-      s.lastX=e.clientX; s.lastY=e.clientY;
+      right.cross(new THREE.Vector3(0, 1, 0)).normalize();
+      const ps = s.camDist * 0.0015;
+      s.camTarget.add(right.multiplyScalar(-dx * ps));
+      s.camTarget.y += dy * ps;
+      s.lastX = e.clientX; s.lastY = e.clientY;
     }
   });
   window.addEventListener('mouseup', e => {
-    if(e.button===0) s.dragging=false;
-    if(e.button===2) s.panning=false;
+    if(e.button === 0) s.dragging = false;
+    if(e.button === 2) s.panning = false;
   });
   canvas.addEventListener('contextmenu', e => e.preventDefault());
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    s.camDist *= e.deltaY>0?1.08:0.92;
+    s.camDist *= e.deltaY > 0 ? 1.08 : 0.92;
     s.camDist = Math.max(4, Math.min(40, s.camDist));
     syncSliders(slot);
-  }, {passive:false});
+  }, {passive: false});
   canvas.addEventListener('dblclick', () => {
-    s.camDist=14; s.camTheta=0; s.camPhi=25*Math.PI/180; s.camTarget.set(0,2.5,0);
+    s.camDist = 14; s.camTheta = 0; s.camPhi = 25 * Math.PI / 180;
+    s.camTarget.set(0, 2.5, 0);
     syncSliders(slot);
   });
 
-  // Tooltip
+  // Tooltip hover
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
-    mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
-    mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
-    $('tooltip').style.left = (e.clientX+16)+'px';
-    $('tooltip').style.top = (e.clientY-16)+'px';
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    $('tooltip').style.left = (e.clientX + 16) + 'px';
+    $('tooltip').style.top = (e.clientY - 16) + 'px';
   });
-  canvas.addEventListener('mouseleave', () => { mouse.set(-999,-999); hideTooltip(); });
+  canvas.addEventListener('mouseleave', () => { mouse.set(-999, -999); hideTooltip(); });
 }
 
-// ======== ANIMATION ========
-function startAnim(slot) {
+// ======== RENDER LOOP - NO ANIMATION, STATIC OBJECTS ========
+function startRenderLoop(slot) {
   const s = slots[slot];
   if(s.animId) cancelAnimationFrame(s.animId);
 
-  function anim() {
-    s.animId = requestAnimationFrame(anim);
-    const t = s.clock.getElapsedTime();
+  function render() {
+    s.animId = requestAnimationFrame(render);
     updateCam(slot);
 
-    s.groups.forEach(g => {
-      if(!g.group.visible) return;
-      g.group.position.y = g.baseY + Math.sin(t*0.5+g.index*1.5)*0.08;
-      const p = 1+Math.sin(t*0.8+g.index*2)*0.02;
-      g.mesh.scale.setScalar(p);
-      g.glow.scale.setScalar(p);
-    });
-
-    // Raycasting
-    const meshes = s.groups.filter(g=>g.group.visible).map(g=>g.mesh);
+    // Raycasting for tooltip
+    const meshes = s.groups.filter(g => g.group.visible).map(g => g.mesh);
     raycaster.setFromCamera(mouse, s.camera);
     const hits = raycaster.intersectObjects(meshes);
 
-    if(s.hovered && (!hits[0] || hits[0].object!==s.hovered)) {
-      const hg = s.groups.find(g=>g.mesh===s.hovered);
-      if(hg) hg.mesh.material.emissiveIntensity=0.25;
-      s.hovered=null;
+    if(s.hovered && (!hits[0] || hits[0].object !== s.hovered)) {
+      const hg = s.groups.find(g => g.mesh === s.hovered);
+      if(hg) hg.mesh.material.emissiveIntensity = 0.2;
+      s.hovered = null;
       hideTooltip();
     }
-    if(hits.length>0 && hits[0].object!==s.hovered) {
+    if(hits.length > 0 && hits[0].object !== s.hovered) {
       s.hovered = hits[0].object;
-      const hg = s.groups.find(g=>g.mesh===s.hovered);
-      if(hg) { hg.mesh.material.emissiveIntensity=0.7; showTooltip(hg); }
+      const hg = s.groups.find(g => g.mesh === s.hovered);
+      if(hg) { hg.mesh.material.emissiveIntensity = 0.6; showTooltip(hg); }
     }
 
-    // Progress
+    // Playback progress
     if(s.isPlaying && s.audioBuffer) {
       const elapsed = s.audioCtx.currentTime - s.playStart + s.playOff;
-      const pct = Math.min(100, elapsed/s.audioBuffer.duration*100);
-      $('progressBar'+slot).style.width = pct+'%';
-      if(elapsed>=s.audioBuffer.duration) stopPlay(slot);
+      const pct = Math.min(100, elapsed / s.audioBuffer.duration * 100);
+      $('progressBar' + slot).style.width = pct + '%';
+      if(elapsed >= s.audioBuffer.duration) stopPlay(slot);
+    }
+
+    // Live mode: scale objects by real-time energy
+    if(s.liveMode && s.isPlaying && s.analyserL) {
+      updateLiveScales(s);
     }
 
     s.renderer.render(s.scene, s.camera);
   }
-  anim();
+  render();
+}
+
+function updateLiveScales(s) {
+  const bLen = s.analyserL.frequencyBinCount;
+  const dL = new Float32Array(bLen);
+  const dR = new Float32Array(bLen);
+  s.analyserL.getFloatFrequencyData(dL);
+  s.analyserR.getFloatFrequencyData(dR);
+  const sr = s.audioCtx.sampleRate;
+  const fft = s.analyserL.fftSize;
+
+  s.groups.forEach(g => {
+    if(!g.group.visible) return;
+    const el = g.element;
+    const lo = Math.max(0, Math.floor(el.freqRange[0] * fft / sr));
+    const hi = Math.min(bLen - 1, Math.floor(el.freqRange[1] * fft / sr));
+    let sL = 0, sR = 0, c = 0;
+    for(let b = lo; b <= hi; b++) {
+      sL += Math.pow(10, dL[b] / 20);
+      sR += Math.pow(10, dR[b] / 20);
+      c++;
+    }
+    if(c > 0) { sL /= c; sR /= c; }
+    const e = (sL + sR) / 2;
+    const sc = Math.min(2.5, Math.max(0.3, e * 6));
+    g.mesh.scale.lerp(new THREE.Vector3(sc, sc, sc), 0.15);
+  });
 }
 
 // ======== TOOLTIP ========
 function showTooltip(g) {
   const el = g.element;
   const tt = $('tooltip');
-  tt.style.display='block';
+  tt.style.display = 'block';
   tt.querySelector('.tt-name').textContent = el.name;
   tt.querySelector('.tt-name').style.color = el.color;
-  $('ttVol').textContent = Math.round((el.normalizedVol||0)*100)+'% ('+el.dbDisplay+'dB)';
-  $('ttVolBar').style.width = Math.round((el.normalizedVol||0)*100)+'%';
+  $('ttVol').textContent = Math.round((el.normalizedVol || 0) * 100) + '% (' + el.dbDisplay + 'dB)';
+  $('ttVolBar').style.width = Math.round((el.normalizedVol || 0) * 100) + '%';
   $('ttVolBar').style.background = el.color;
-  $('ttPan').textContent = el.pan<-0.1?`Gauche ${Math.round(Math.abs(el.pan)*100)}%`:el.pan>0.1?`Droite ${Math.round(el.pan*100)}%`:'Centre';
-  const fmt = f => f>=1000?(f/1000).toFixed(1)+'k':f+'';
-  $('ttFreq').textContent = fmt(el.freq[0])+' – '+fmt(el.freq[1])+' Hz';
-  const dp = Math.round(el.depth*100);
-  $('ttDepth').textContent = dp<25?`Devant (${dp}%)`:dp>60?`Arriere (${dp}%)`:`Milieu (${dp}%)`;
-  $('ttConf').textContent = Math.round(el.confidence*100)+'%';
+  $('ttPan').textContent = el.pan < -0.1 ? `Gauche ${Math.round(Math.abs(el.pan)*100)}%` : el.pan > 0.1 ? `Droite ${Math.round(el.pan*100)}%` : 'Centre';
+  const fmt = f => f >= 1000 ? (f/1000).toFixed(1) + 'k' : f + '';
+  $('ttFreq').textContent = fmt(el.freqRange[0]) + ' - ' + fmt(el.freqRange[1]) + ' Hz';
+  const dp = Math.round(el.depth * 100);
+  $('ttDepth').textContent = dp < 25 ? `Devant (${dp}%)` : dp > 60 ? `Arriere (${dp}%)` : `Milieu (${dp}%)`;
+  $('ttConf').textContent = Math.round(el.confidence * 100) + '%';
 }
-function hideTooltip() { $('tooltip').style.display='none'; }
+function hideTooltip() { $('tooltip').style.display = 'none'; }
 
 // ======== PLAYBACK ========
-document.querySelectorAll('.btnPlay').forEach(b => b.addEventListener('click', ()=>startPlay(+b.dataset.slot)));
-document.querySelectorAll('.btnPause').forEach(b => b.addEventListener('click', ()=>stopPlay(+b.dataset.slot)));
-document.querySelectorAll('.btnLive').forEach(b => b.addEventListener('click', ()=>{
-  const s=slots[+b.dataset.slot]; s.liveMode=!s.liveMode; b.classList.toggle('active',s.liveMode);
-  if(s.liveMode&&s.isPlaying) startLive(+b.dataset.slot);
+document.querySelectorAll('.btnPlay').forEach(b => b.addEventListener('click', () => startPlay(+b.dataset.slot)));
+document.querySelectorAll('.btnPause').forEach(b => b.addEventListener('click', () => stopPlay(+b.dataset.slot)));
+document.querySelectorAll('.btnLive').forEach(b => b.addEventListener('click', () => {
+  const s = slots[+b.dataset.slot];
+  s.liveMode = !s.liveMode;
+  b.classList.toggle('active', s.liveMode);
 }));
 
 function startPlay(slot) {
   const s = slots[slot];
-  if(!s.audioBuffer||s.isPlaying) return;
+  if(!s.audioBuffer || s.isPlaying) return;
   s.audioCtx.resume();
   s.source = s.audioCtx.createBufferSource();
   s.source.buffer = s.audioBuffer;
   s.splitter = s.audioCtx.createChannelSplitter(2);
-  s.analyserL = s.audioCtx.createAnalyser(); s.analyserR = s.audioCtx.createAnalyser();
-  s.analyserL.fftSize=2048; s.analyserR.fftSize=2048;
-  s.source.connect(s.splitter); s.source.connect(s.audioCtx.destination);
-  s.splitter.connect(s.analyserL,0); s.splitter.connect(s.analyserR,1);
-  s.playStart=s.audioCtx.currentTime; s.source.start(0,s.playOff);
-  s.isPlaying=true;
-  if(s.liveMode) startLive(slot);
-  s.source.onended = () => { if(s.isPlaying){s.isPlaying=false;s.playOff=0;$('progressBar'+slot).style.width='0%';} };
+  s.analyserL = s.audioCtx.createAnalyser();
+  s.analyserR = s.audioCtx.createAnalyser();
+  s.analyserL.fftSize = 2048;
+  s.analyserR.fftSize = 2048;
+  s.source.connect(s.splitter);
+  s.source.connect(s.audioCtx.destination);
+  s.splitter.connect(s.analyserL, 0);
+  s.splitter.connect(s.analyserR, 1);
+  s.playStart = s.audioCtx.currentTime;
+  s.source.start(0, s.playOff);
+  s.isPlaying = true;
+  s.source.onended = () => {
+    if(s.isPlaying) { s.isPlaying = false; s.playOff = 0; $('progressBar' + slot).style.width = '0%'; }
+  };
 }
+
 function stopPlay(slot) {
   const s = slots[slot];
   if(!s.isPlaying) return;
-  s.playOff = s.audioCtx.currentTime-s.playStart+s.playOff;
-  if(s.source){s.source.onended=null;s.source.stop();}
-  s.isPlaying=false;
-}
-function startLive(slot) {
-  const s = slots[slot];
-  if(!s.liveMode||!s.isPlaying||!s.analyserL) return;
-  const bLen=s.analyserL.frequencyBinCount;
-  const dL=new Float32Array(bLen), dR=new Float32Array(bLen);
-  function upd() {
-    if(!s.liveMode||!s.isPlaying) return;
-    s.analyserL.getFloatFrequencyData(dL); s.analyserR.getFloatFrequencyData(dR);
-    const sr=s.audioCtx.sampleRate, fft=s.analyserL.fftSize;
-    s.groups.forEach(g => {
-      if(!g.group.visible) return;
-      const el=g.element;
-      const lo=Math.max(0,Math.floor(el.freq[0]*fft/sr));
-      const hi=Math.min(bLen-1,Math.floor(el.freq[1]*fft/sr));
-      let sL=0,sR=0,c=0;
-      for(let b=lo;b<=hi;b++){sL+=Math.pow(10,dL[b]/20);sR+=Math.pow(10,dR[b]/20);c++;}
-      if(c>0){sL/=c;sR/=c;}
-      const e=(sL+sR)/2;
-      const sc=Math.min(2.5,Math.max(0.3,e*6));
-      g.mesh.scale.lerp(new THREE.Vector3(sc,sc,sc),0.15);
-      g.glow.scale.lerp(new THREE.Vector3(sc*1.5,sc*1.5,sc*1.5),0.15);
-      g.glow.material.opacity=Math.min(0.12,e*0.25);
-    });
-    requestAnimationFrame(upd);
-  }
-  upd();
+  s.playOff = s.audioCtx.currentTime - s.playStart + s.playOff;
+  if(s.source) { s.source.onended = null; s.source.stop(); }
+  s.isPlaying = false;
 }
 
 // ======== RESIZE ========
 function onResize(slot) {
-  const s=slots[slot]; if(!s.renderer) return;
-  const w=$('canvasWrap'+slot).clientWidth, h=$('canvasWrap'+slot).clientHeight;
-  s.camera.aspect=w/h; s.camera.updateProjectionMatrix(); s.renderer.setSize(w,h);
+  const s = slots[slot];
+  if(!s.renderer) return;
+  const w = $('canvasWrap' + slot).clientWidth;
+  const h = $('canvasWrap' + slot).clientHeight;
+  s.camera.aspect = w / h;
+  s.camera.updateProjectionMatrix();
+  s.renderer.setSize(w, h);
 }
 
 // ======== COMPARE MODE ========
@@ -1142,8 +1405,6 @@ $('btnCompare').addEventListener('click', () => {
   $('canvasWrap1').style.display = compareMode ? 'block' : 'none';
   $('uploadTabs').style.display = compareMode ? 'flex' : 'none';
   $('dropzone1').style.display = compareMode ? 'block' : 'none';
-
-  // Resize both canvases
   setTimeout(() => { onResize(0); if(compareMode && slots[1].renderer) onResize(1); }, 100);
 });
 
@@ -1151,19 +1412,19 @@ $('btnCompare').addEventListener('click', () => {
 document.querySelectorAll('.upload-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     activeSlot = +tab.dataset.slot;
-    document.querySelectorAll('.upload-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.upload-tab').forEach(t => t.classList.remove('active'));
     tab.classList.add('active');
     updateInstrumentList();
   });
 });
 
 // ======== SLIDERS ========
-$('sliderZoom').addEventListener('input', e => { slots[0].camDist=parseFloat(e.target.value); });
-$('sliderElevation').addEventListener('input', e => { slots[0].camPhi=parseFloat(e.target.value)*Math.PI/180; });
-$('sliderAngle').addEventListener('input', e => { slots[0].camTheta=parseFloat(e.target.value)*Math.PI/180; });
+$('sliderZoom').addEventListener('input', e => { slots[0].camDist = parseFloat(e.target.value); });
+$('sliderElevation').addEventListener('input', e => { slots[0].camPhi = parseFloat(e.target.value) * Math.PI / 180; });
+$('sliderAngle').addEventListener('input', e => { slots[0].camTheta = parseFloat(e.target.value) * Math.PI / 180; });
 $('sliderThreshold').addEventListener('input', e => {
-  thresholdSetting=parseInt(e.target.value);
-  [0,1].forEach(sl => { if(slots[sl].audioBuffer) { analyzeAudio(sl); buildMeshes(sl); } });
+  sensitivitySetting = parseInt(e.target.value);
+  [0,1].forEach(sl => { if(slots[sl].audioBuffer) { analyzeAudioAdvanced(sl); buildMeshes(sl); } });
   updateInstrumentList();
 });
 
@@ -1176,23 +1437,23 @@ $('btnShowAll').addEventListener('click', () => {
 
 $('btnReset').addEventListener('click', () => {
   [0,1].forEach(sl => {
-    const s=slots[sl];
+    const s = slots[sl];
     if(s.isPlaying) stopPlay(sl);
-    s.audioBuffer=null; s.source=null; s.elements=[]; s.hiddenIds.clear(); s.playOff=0;
+    s.audioBuffer = null; s.source = null; s.elements = []; s.hiddenIds.clear(); s.playOff = 0;
     if(s.renderer) {
-      while(s.scene.children.length>0) s.scene.remove(s.scene.children[0]);
-      s.groups=[]; s.renderer.dispose(); s.renderer=null;
+      while(s.scene.children.length > 0) s.scene.remove(s.scene.children[0]);
+      s.groups = []; s.renderer.dispose(); s.renderer = null;
     }
-    $('emptyState'+sl).style.display='flex';
-    $('transport'+sl).style.display='none';
-    $('fileName'+sl).textContent='';
-    $('progressBar'+sl).style.width='0%';
-    const c=$('scene'+sl); c.width=0; c.height=0;
+    $('emptyState' + sl).style.display = 'flex';
+    $('transport' + sl).style.display = 'none';
+    $('fileName' + sl).textContent = '';
+    $('progressBar' + sl).style.width = '0%';
+    const c = $('scene' + sl); c.width = 0; c.height = 0;
   });
-  $('panelInstruments').style.display='none';
-  $('instrumentList').innerHTML='';
-  $('hud0').style.display='none';
-  $('controlsHelp0').style.display='none';
+  $('panelInstruments').style.display = 'none';
+  $('instrumentList').innerHTML = '';
+  $('hud0').style.display = 'none';
+  $('controlsHelp0').style.display = 'none';
 });
 
 })();
