@@ -6,9 +6,7 @@
 <title>Mix Visualizer 3D</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
-
   * { margin: 0; padding: 0; box-sizing: border-box; }
-
   :root {
     --bg: #08080d;
     --surface: #101018;
@@ -24,7 +22,6 @@
     --yellow: #fbbf24;
     --red: #f87171;
   }
-
   body {
     font-family: 'Inter', -apple-system, sans-serif;
     background: var(--bg);
@@ -34,461 +31,236 @@
     width: 100vw;
     user-select: none;
   }
-
-  /* --- Layout --- */
   #app {
     display: grid;
-    grid-template-rows: 48px 1fr;
-    grid-template-columns: 300px 1fr;
+    grid-template-rows: 44px 1fr;
+    grid-template-columns: 280px 1fr;
     height: 100vh;
+  }
+  #app.compare-mode {
+    grid-template-columns: 280px 1fr 1fr;
   }
 
   /* --- Top Bar --- */
   #topbar {
     grid-column: 1 / -1;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 16px;
     background: var(--surface);
     border-bottom: 1px solid var(--border);
     z-index: 100;
   }
-  #topbar .logo {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 14px;
-    letter-spacing: -0.02em;
-  }
-  #topbar .logo svg { width: 24px; height: 24px; }
-  #topbar .actions { display: flex; align-items: center; gap: 8px; }
+  #topbar .logo { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 13px; }
+  #topbar .logo svg { width: 22px; height: 22px; }
+  #topbar .actions { display: flex; align-items: center; gap: 6px; }
 
   .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid var(--border);
-    background: var(--surface2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all .15s;
-    white-space: nowrap;
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 12px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text); font-family: inherit; font-size: 11px; font-weight: 500;
+    cursor: pointer; transition: all .15s; white-space: nowrap;
   }
-  .btn:hover { background: var(--surface3); border-color: #3a3a50; }
-  .btn.primary {
-    background: var(--accent);
-    color: #000;
-    border-color: var(--accent);
-    font-weight: 600;
-  }
-  .btn.primary:hover { filter: brightness(1.15); }
-  .btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .btn:hover { background: var(--surface3); }
+  .btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
+  .btn svg { width: 12px; height: 12px; flex-shrink: 0; }
 
   /* --- Sidebar --- */
   #sidebar {
     background: var(--surface);
     border-right: 1px solid var(--border);
-    overflow-y: auto;
-    padding: 14px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+    overflow-y: auto; padding: 10px;
+    display: flex; flex-direction: column; gap: 8px;
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
   }
-  #sidebar::-webkit-scrollbar { width: 4px; }
-  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  #sidebar::-webkit-scrollbar { width: 3px; }
+  #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-  .panel {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 12px;
-  }
+  .panel { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
   .panel h3 {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
+    font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--text-dim); margin-bottom: 8px;
+    display: flex; align-items: center; justify-content: space-between;
   }
   .panel h3 .badge {
-    font-size: 9px;
-    background: var(--surface3);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 600;
-    letter-spacing: 0;
-    color: var(--accent);
+    font-size: 8px; background: var(--surface3); padding: 1px 5px;
+    border-radius: 3px; font-weight: 600; color: var(--accent);
   }
 
-  /* Upload area */
-  #dropzone {
-    border: 2px dashed var(--border);
-    border-radius: 10px;
-    padding: 24px 12px;
-    text-align: center;
-    cursor: pointer;
-    transition: all .2s;
+  /* Upload */
+  .dropzone {
+    border: 2px dashed var(--border); border-radius: 8px;
+    padding: 16px 10px; text-align: center; cursor: pointer; transition: all .2s;
   }
-  #dropzone:hover, #dropzone.dragover {
-    border-color: var(--accent);
-    background: rgba(0,217,206,0.04);
+  .dropzone:hover, .dropzone.dragover { border-color: var(--accent); background: rgba(0,217,206,0.04); }
+  .dropzone p { font-size: 11px; color: var(--text-dim); }
+  .dropzone .filename { font-size: 10px; color: var(--accent); margin-top: 4px; word-break: break-all; }
+  .file-input { display: none; }
+
+  /* Upload tabs for compare */
+  .upload-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .upload-tab {
+    flex: 1; padding: 4px 8px; text-align: center; font-size: 10px; font-weight: 600;
+    border-radius: 5px; border: 1px solid var(--border); background: var(--surface);
+    cursor: pointer; color: var(--text-dim); transition: all .15s;
   }
-  #dropzone svg { margin-bottom: 6px; opacity: 0.4; }
-  #dropzone p { font-size: 12px; color: var(--text-dim); margin-top: 4px; }
-  #dropzone .filename {
-    font-size: 11px;
-    color: var(--accent);
-    margin-top: 6px;
-    word-break: break-all;
-  }
-  #fileInput { display: none; }
+  .upload-tab.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
   /* Instrument list */
-  .instrument-list { display: flex; flex-direction: column; gap: 3px; }
+  .instrument-list { display: flex; flex-direction: column; gap: 2px; }
   .instrument-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: 6px;
-    background: rgba(255,255,255,0.02);
-    font-size: 12px;
-    transition: all .15s;
-    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 6px; border-radius: 5px;
+    background: rgba(255,255,255,0.02); font-size: 11px;
+    transition: all .15s; cursor: pointer;
   }
   .instrument-item:hover { background: rgba(255,255,255,0.05); }
-  .instrument-item.hidden-el { opacity: 0.3; }
+  .instrument-item.hidden-el { opacity: 0.25; }
   .instrument-item.hidden-el .instrument-name { text-decoration: line-through; }
 
-  /* Eye toggle */
   .eye-toggle {
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    opacity: 0.5;
-    transition: opacity .15s;
-    flex-shrink: 0;
+    width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; opacity: 0.4; transition: opacity .15s; flex-shrink: 0;
   }
   .eye-toggle:hover { opacity: 1; }
-  .eye-toggle svg { width: 14px; height: 14px; }
+  .eye-toggle svg { width: 12px; height: 12px; }
 
-  .instrument-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
+  .color-swatch {
+    width: 14px; height: 14px; border-radius: 3px; flex-shrink: 0;
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
+    transition: transform .1s;
   }
-  .instrument-name { flex: 1; font-weight: 500; font-size: 11px; }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .instrument-name { flex: 1; font-weight: 500; font-size: 10px; }
 
-  /* Volume bar */
   .vol-bar-wrap {
-    width: 48px;
-    height: 6px;
-    background: var(--surface);
-    border-radius: 3px;
-    overflow: hidden;
-    flex-shrink: 0;
+    width: 40px; height: 5px; background: var(--surface);
+    border-radius: 3px; overflow: hidden; flex-shrink: 0;
   }
-  .vol-bar {
-    height: 100%;
-    border-radius: 3px;
-    transition: width .3s;
-  }
+  .vol-bar { height: 100%; border-radius: 3px; transition: width .3s; }
   .instrument-db {
-    font-size: 9px;
-    color: var(--text-dim);
-    width: 38px;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-    flex-shrink: 0;
+    font-size: 8px; color: var(--text-dim); width: 32px;
+    text-align: right; font-variant-numeric: tabular-nums; flex-shrink: 0;
   }
   .instrument-pan-badge {
-    font-size: 9px;
-    color: var(--text-dim);
-    background: var(--surface);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-weight: 600;
-    flex-shrink: 0;
-    min-width: 22px;
-    text-align: center;
+    font-size: 8px; color: var(--text-dim); background: var(--surface);
+    padding: 1px 4px; border-radius: 3px; font-weight: 600;
+    flex-shrink: 0; min-width: 18px; text-align: center;
   }
 
-  /* Sliders */
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 8px;
+  /* Confidence badge */
+  .confidence-badge {
+    font-size: 7px; padding: 1px 3px; border-radius: 2px;
+    font-weight: 700; flex-shrink: 0;
   }
+  .confidence-high { background: rgba(52,211,153,0.2); color: var(--green); }
+  .confidence-mid { background: rgba(251,191,36,0.2); color: var(--yellow); }
+  .confidence-low { background: rgba(248,113,113,0.2); color: var(--red); }
+
+  .slider-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
   .slider-row:last-child { margin-bottom: 0; }
-  .slider-row label {
-    font-size: 11px;
-    color: var(--text-dim);
-    width: 70px;
-    flex-shrink: 0;
-  }
+  .slider-row label { font-size: 10px; color: var(--text-dim); width: 60px; flex-shrink: 0; }
   .slider-row input[type=range] {
-    flex: 1;
-    -webkit-appearance: none;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--border);
-    outline: none;
+    flex: 1; -webkit-appearance: none; height: 3px;
+    border-radius: 2px; background: var(--border); outline: none;
   }
   .slider-row input[type=range]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--accent);
-    cursor: pointer;
-    border: 2px solid var(--surface);
+    -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%;
+    background: var(--accent); cursor: pointer; border: 2px solid var(--surface);
   }
 
-  /* Analyzing state */
   .analyzing-overlay {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    background: rgba(8,8,13,0.9);
-    z-index: 200;
-    gap: 16px;
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    background: rgba(8,8,13,0.9); z-index: 200; gap: 12px;
   }
   .analyzing-overlay .spinner {
-    width: 36px;
-    height: 36px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    width: 32px; height: 32px; border: 3px solid var(--border);
+    border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite;
   }
   @keyframes spin { to { transform: rotate(360deg); } }
-  .analyzing-overlay p { font-size: 13px; color: var(--text-dim); }
 
-  /* --- 3D Canvas area --- */
-  #canvas-wrap {
-    position: relative;
-    overflow: hidden;
-    background: var(--bg);
+  /* Canvas areas */
+  .canvas-wrap {
+    position: relative; overflow: hidden; background: var(--bg);
   }
-  #canvas-wrap canvas { display: block; }
+  .canvas-wrap canvas { display: block; }
+  .canvas-wrap .label-overlay {
+    position: absolute; top: 8px; left: 8px;
+    font-size: 10px; font-weight: 700; color: var(--text-dim);
+    background: rgba(16,16,24,0.8); padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--border); z-index: 5;
+  }
 
-  /* Controls help */
   .controls-help {
-    position: absolute;
-    top: 12px;
-    right: 12px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 10px;
-    color: var(--text-dim);
-    background: rgba(16,16,24,0.85);
-    backdrop-filter: blur(8px);
-    padding: 8px 12px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    pointer-events: none;
-    opacity: 0.7;
-    line-height: 1.5;
-    z-index: 10;
+    position: absolute; top: 8px; right: 8px;
+    display: flex; flex-direction: column; gap: 2px;
+    font-size: 9px; color: var(--text-dim);
+    background: rgba(16,16,24,0.8); backdrop-filter: blur(8px);
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+    pointer-events: none; opacity: 0.6; z-index: 10;
   }
   .controls-help kbd {
-    display: inline-block;
-    background: var(--surface3);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 0 4px;
-    font-family: inherit;
-    font-size: 9px;
-    color: var(--text);
+    display: inline-block; background: var(--surface3); border: 1px solid var(--border);
+    border-radius: 2px; padding: 0 3px; font-family: inherit; font-size: 8px; color: var(--text);
   }
 
-  /* HUD overlay */
-  .hud-bottom {
-    position: absolute;
-    bottom: 14px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 24px;
-    background: rgba(16,16,24,0.85);
-    backdrop-filter: blur(12px);
-    padding: 6px 18px;
-    border-radius: 16px;
-    border: 1px solid var(--border);
-    pointer-events: none;
-    font-size: 10px;
-    color: var(--text-dim);
-    z-index: 10;
-  }
-  .hud-axis { display: flex; align-items: center; gap: 5px; }
-  .hud-axis .arrow { color: var(--accent); font-size: 12px; }
-
-  /* Tooltip */
   #tooltip {
-    position: absolute;
-    display: none;
-    pointer-events: none;
-    background: rgba(16,16,24,0.95);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 14px;
-    font-size: 11px;
-    z-index: 50;
-    min-width: 160px;
+    position: fixed; display: none; pointer-events: none;
+    background: rgba(16,16,24,0.95); backdrop-filter: blur(12px);
+    border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; font-size: 11px; z-index: 500; min-width: 170px;
   }
-  #tooltip .tt-name { font-weight: 700; font-size: 13px; margin-bottom: 6px; }
-  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 16px; color: var(--text-dim); margin-top: 3px; }
+  #tooltip .tt-name { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  #tooltip .tt-row { display: flex; justify-content: space-between; gap: 12px; color: var(--text-dim); margin-top: 2px; }
   #tooltip .tt-val { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
-  #tooltip .tt-volbar {
-    width: 100%;
-    height: 5px;
-    background: var(--surface3);
-    border-radius: 3px;
-    margin-top: 6px;
-    overflow: hidden;
-  }
-  #tooltip .tt-volbar-fill {
-    height: 100%;
-    border-radius: 3px;
-  }
+  #tooltip .tt-volbar { width: 100%; height: 5px; background: var(--surface3); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  #tooltip .tt-volbar-fill { height: 100%; border-radius: 3px; }
 
-  /* Transport */
   .transport {
-    position: absolute;
-    bottom: 50px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 6px;
-    z-index: 30;
+    position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 5px; z-index: 30;
   }
   .transport button {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: rgba(16,16,24,0.9);
-    color: var(--text);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all .15s;
-    backdrop-filter: blur(8px);
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 1px solid var(--border); background: rgba(16,16,24,0.9);
+    color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all .15s; backdrop-filter: blur(8px);
   }
   .transport button:hover { border-color: var(--accent); color: var(--accent); }
   .transport button.active { background: var(--accent); color: #000; border-color: var(--accent); }
-  .transport button svg { width: 14px; height: 14px; }
+  .transport button svg { width: 12px; height: 12px; }
 
-  /* Empty state */
+  .hud-bottom {
+    position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 16px;
+    background: rgba(16,16,24,0.8); backdrop-filter: blur(8px);
+    padding: 4px 14px; border-radius: 12px; border: 1px solid var(--border);
+    pointer-events: none; font-size: 9px; color: var(--text-dim); z-index: 10;
+  }
+
   .empty-state {
-    position: absolute;
-    inset: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: var(--text-dim);
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 10px; color: var(--text-dim);
   }
-  .empty-state svg { opacity: 0.2; }
-  .empty-state p { font-size: 13px; }
+  .empty-state svg { opacity: 0.15; }
+  .empty-state p { font-size: 12px; }
 
-  /* Progress bar */
   .progress-bar {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 2px;
+    position: absolute; bottom: 0; left: 0; height: 2px;
     background: linear-gradient(90deg, var(--accent), var(--accent2));
-    transition: width 0.1s linear;
-    z-index: 10;
-  }
-
-  /* Freq zone legend on canvas */
-  .freq-legend {
-    position: absolute;
-    left: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    pointer-events: none;
-    z-index: 5;
-  }
-  .freq-zone {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 8px;
-    font-size: 9px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-    border-left: 3px solid;
-    background: rgba(8,8,13,0.6);
-  }
-
-  /* Depth legend */
-  .depth-legend {
-    position: absolute;
-    bottom: 50px;
-    right: 12px;
-    pointer-events: none;
-    z-index: 5;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 9px;
-    color: var(--text-dim);
-    background: rgba(16,16,24,0.8);
-    padding: 8px 10px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-  }
-  .depth-legend .depth-bar {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .depth-legend .depth-sample {
-    width: 20px;
-    height: 4px;
-    border-radius: 2px;
+    transition: width 0.1s linear; z-index: 10;
   }
 
   @media (max-width: 900px) {
-    #app { grid-template-columns: 1fr; }
+    #app, #app.compare-mode { grid-template-columns: 1fr; }
     #sidebar { display: none; }
   }
 </style>
 </head>
 <body>
 <div id="app">
-  <!-- Top Bar -->
   <div id="topbar">
     <div class="logo">
       <svg viewBox="0 0 28 28" fill="none">
@@ -507,1144 +279,920 @@
       Mix Visualizer 3D
     </div>
     <div class="actions">
-      <button class="btn" id="btnShowAll" title="Tout afficher">
+      <button class="btn" id="btnCompare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg>
+        Comparer
+      </button>
+      <button class="btn" id="btnShowAll">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         Tout afficher
       </button>
-      <a href="trackmap.html" class="btn" style="text-decoration:none;">TrackMap</a>
-      <button class="btn" id="btnReset" title="Reset">
+      <button class="btn" id="btnReset">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg>
         Reset
       </button>
     </div>
   </div>
 
-  <!-- Sidebar -->
   <div id="sidebar">
-    <!-- Upload -->
-    <div id="dropzone" tabindex="0">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-        <polyline points="17 8 12 3 7 8"/>
-        <line x1="12" y1="3" x2="12" y2="15"/>
-      </svg>
-      <p>Glisser un fichier audio ici<br>ou <strong style="color:var(--accent)">cliquer pour parcourir</strong></p>
-      <p style="font-size:10px;margin-top:3px;opacity:0.4">WAV, MP3, FLAC, OGG</p>
-      <div class="filename" id="fileName"></div>
+    <!-- Upload tabs for compare mode -->
+    <div class="upload-tabs" id="uploadTabs" style="display:none">
+      <div class="upload-tab active" data-slot="0">Piste A</div>
+      <div class="upload-tab" data-slot="1">Piste B</div>
     </div>
-    <input type="file" id="fileInput" accept="audio/*">
 
-    <!-- Detected Instruments -->
+    <div class="dropzone" id="dropzone0">
+      <p>Glisser un audio ici ou <strong style="color:var(--accent)">parcourir</strong></p>
+      <p style="font-size:9px;margin-top:2px;opacity:0.4">WAV, MP3, FLAC, OGG</p>
+      <div class="filename" id="fileName0"></div>
+    </div>
+    <input type="file" class="file-input" id="fileInput0" accept="audio/*">
+
+    <div class="dropzone" id="dropzone1" style="display:none">
+      <p>Audio B : <strong style="color:var(--accent2)">parcourir</strong></p>
+      <div class="filename" id="fileName1"></div>
+    </div>
+    <input type="file" class="file-input" id="fileInput1" accept="audio/*">
+
     <div class="panel" id="panelInstruments" style="display:none">
-      <h3>Elements du mix <span class="badge" id="elCount">0</span></h3>
+      <h3>Elements detectes <span class="badge" id="elCount">0</span></h3>
       <div class="instrument-list" id="instrumentList"></div>
     </div>
 
-    <!-- Camera Controls -->
     <div class="panel">
       <h3>Camera</h3>
-      <div class="slider-row">
-        <label>Zoom</label>
-        <input type="range" id="sliderZoom" min="5" max="60" value="22">
-      </div>
-      <div class="slider-row">
-        <label>Elevation</label>
-        <input type="range" id="sliderElevation" min="-10" max="80" value="20">
-      </div>
-      <div class="slider-row">
-        <label>Angle</label>
-        <input type="range" id="sliderAngle" min="-180" max="180" value="0">
-      </div>
+      <div class="slider-row"><label>Zoom</label><input type="range" id="sliderZoom" min="4" max="40" value="14"></div>
+      <div class="slider-row"><label>Elevation</label><input type="range" id="sliderElevation" min="-10" max="80" value="25"></div>
+      <div class="slider-row"><label>Angle</label><input type="range" id="sliderAngle" min="-180" max="180" value="0"></div>
     </div>
 
-    <!-- Analysis Settings -->
     <div class="panel">
       <h3>Analyse</h3>
-      <div class="slider-row">
-        <label>Sensibilite</label>
-        <input type="range" id="sliderSensitivity" min="1" max="100" value="50">
-      </div>
-      <div class="slider-row">
-        <label>Smoothing</label>
-        <input type="range" id="sliderSmoothing" min="0" max="100" value="70">
-      </div>
+      <div class="slider-row"><label>Seuil</label><input type="range" id="sliderThreshold" min="1" max="100" value="40"></div>
     </div>
 
-    <!-- Legend -->
     <div class="panel">
       <h3>Axes</h3>
-      <div style="font-size:11px;color:var(--text-dim);line-height:2">
-        <div><span style="color:var(--accent)">&#9654;</span> <strong style="color:var(--text)">Gauche ↔ Droite</strong> — Panoramique stereo</div>
-        <div><span style="color:var(--accent2)">&#9650;</span> <strong style="color:var(--text)">Bas ↔ Haut</strong> — Frequence (grave → aigu)</div>
-        <div><span style="color:var(--accent3)">&#9679;</span> <strong style="color:var(--text)">Taille sphere</strong> — Volume relatif (dB)</div>
-        <div><span style="color:#fbbf24">&#9670;</span> <strong style="color:var(--text)">Avant ↔ Arriere</strong> — Profondeur / reverb</div>
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.9">
+        <div><span style="color:var(--accent)">&#8594;</span> <b style="color:var(--text)">X</b> Stereo (L ↔ R)</div>
+        <div><span style="color:var(--accent2)">&#8593;</span> <b style="color:var(--text)">Y</b> Frequence (grave → aigu)</div>
+        <div><span style="color:var(--accent3)">&#9679;</span> <b style="color:var(--text)">Taille</b> Volume (dB)</div>
+        <div><span style="color:var(--yellow)">&#8599;</span> <b style="color:var(--text)">Z</b> Profondeur (dry → wet)</div>
       </div>
     </div>
   </div>
 
-  <!-- 3D Canvas Area -->
-  <div id="canvas-wrap">
-    <div class="empty-state" id="emptyState">
-      <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-        <circle cx="12" cy="12" r="10"/>
-        <path d="M12 8v4l3 3"/>
-      </svg>
-      <p>Importer un fichier audio pour commencer l'analyse</p>
+  <!-- Canvas A (always visible) -->
+  <div class="canvas-wrap" id="canvasWrap0">
+    <div class="empty-state" id="emptyState0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <p>Importer un fichier audio</p>
     </div>
-
-    <canvas id="scene"></canvas>
-
-    <div id="tooltip">
-      <div class="tt-name"></div>
-      <div class="tt-row"><span>Volume</span><span class="tt-val" id="ttVol"></span></div>
-      <div class="tt-volbar"><div class="tt-volbar-fill" id="ttVolBar"></div></div>
-      <div class="tt-row"><span>Pan</span><span class="tt-val" id="ttPan"></span></div>
-      <div class="tt-row"><span>Frequences</span><span class="tt-val" id="ttFreq"></span></div>
-      <div class="tt-row"><span>Profondeur</span><span class="tt-val" id="ttDepth"></span></div>
+    <canvas id="scene0"></canvas>
+    <div class="controls-help" id="controlsHelp0" style="display:none">
+      <div><kbd>Clic G</kbd> Orbite &nbsp; <kbd>Clic D</kbd> Pan &nbsp; <kbd>Molette</kbd> Zoom</div>
     </div>
-
-    <!-- Controls help -->
-    <div class="controls-help" id="controlsHelp" style="display:none">
-      <div><kbd>Clic gauche</kbd> + glisser → Orbite</div>
-      <div><kbd>Clic droit</kbd> + glisser → Deplacement</div>
-      <div><kbd>Molette</kbd> → Zoom</div>
-      <div><kbd>Double-clic</kbd> → Recentrer</div>
+    <div class="hud-bottom" id="hud0" style="display:none">
+      <span>← L — R →</span><span>↓ Grave — Aigu ↑</span><span>Taille = Volume</span>
     </div>
-
-    <!-- Freq zones (left side) -->
-    <div class="freq-legend" id="freqLegend" style="display:none">
-      <div class="freq-zone" style="border-color:#f87171;color:#f87171">Air 10k+</div>
-      <div class="freq-zone" style="border-color:#fbbf24;color:#fbbf24">Presence 4k-10k</div>
-      <div class="freq-zone" style="border-color:#34d399;color:#34d399">Mediums 500-4k</div>
-      <div class="freq-zone" style="border-color:#60a5fa;color:#60a5fa">Low-Mid 200-500</div>
-      <div class="freq-zone" style="border-color:#a78bfa;color:#a78bfa">Bass 60-200</div>
-      <div class="freq-zone" style="border-color:#7c5cfc;color:#7c5cfc">Sub 20-60</div>
+    <div class="transport" id="transport0" style="display:none">
+      <button class="btnPlay" data-slot="0" title="Play"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+      <button class="btnPause" data-slot="0" title="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+      <button class="btnLive" data-slot="0" title="Live"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></button>
     </div>
+    <div class="progress-bar" id="progressBar0" style="width:0%"></div>
+  </div>
 
-    <!-- Depth legend -->
-    <div class="depth-legend" id="depthLegend" style="display:none">
-      <div style="font-weight:600;margin-bottom:3px;color:var(--text)">Profondeur</div>
-      <div class="depth-bar"><div class="depth-sample" style="background:var(--text);opacity:1"></div> Devant (dry)</div>
-      <div class="depth-bar"><div class="depth-sample" style="background:var(--text);opacity:0.5"></div> Milieu</div>
-      <div class="depth-bar"><div class="depth-sample" style="background:var(--text);opacity:0.2"></div> Arriere (wet)</div>
+  <!-- Canvas B (compare mode only) -->
+  <div class="canvas-wrap" id="canvasWrap1" style="display:none">
+    <div class="label-overlay" style="color:var(--accent2)">PISTE B</div>
+    <div class="empty-state" id="emptyState1">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <p>Importer audio B</p>
     </div>
-
-    <!-- HUD -->
-    <div class="hud-bottom" id="hudBottom" style="display:none">
-      <div class="hud-axis"><span class="arrow">←</span> L — Stereo — R <span class="arrow">→</span></div>
-      <div class="hud-axis"><span class="arrow">↓</span> Grave — Aigu <span class="arrow">↑</span></div>
-      <div class="hud-axis">Taille = Volume</div>
+    <canvas id="scene1"></canvas>
+    <div class="transport" id="transport1" style="display:none">
+      <button class="btnPlay" data-slot="1" title="Play"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+      <button class="btnPause" data-slot="1" title="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
     </div>
-
-    <!-- Transport -->
-    <div class="transport" id="transport" style="display:none">
-      <button id="btnPlay" title="Lecture">
-        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
-      </button>
-      <button id="btnPause" title="Pause">
-        <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-      </button>
-      <button id="btnLive" title="Mode temps reel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>
-      </button>
-    </div>
-
-    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+    <div class="progress-bar" id="progressBar1" style="width:0%"></div>
   </div>
 </div>
 
-<!-- Three.js -->
+<div id="tooltip">
+  <div class="tt-name"></div>
+  <div class="tt-row"><span>Volume</span><span class="tt-val" id="ttVol"></span></div>
+  <div class="tt-volbar"><div class="tt-volbar-fill" id="ttVolBar"></div></div>
+  <div class="tt-row"><span>Pan</span><span class="tt-val" id="ttPan"></span></div>
+  <div class="tt-row"><span>Frequences</span><span class="tt-val" id="ttFreq"></span></div>
+  <div class="tt-row"><span>Profondeur</span><span class="tt-val" id="ttDepth"></span></div>
+  <div class="tt-row"><span>Confiance</span><span class="tt-val" id="ttConf"></span></div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ============================================================
-//  MIX VISUALIZER 3D v2 — Full Camera Controls, Visibility,
-//  Clear Volume/Freq/Depth
-// ============================================================
 (function() {
 'use strict';
 
-// ----- Constants -----
+// ======== INSTRUMENT DEFINITIONS ========
+// Each has non-overlapping "exclusive" freq bands + transient flag for percussive detection
 const INSTRUMENT_DEFS = [
-  { id: 'sub',    name: 'Sub Bass',       color: '#7c5cfc', freqRange: [20, 60],     yPos: 0.02, depthHint: 0.3 },
-  { id: 'kick',   name: 'Kick',           color: '#d4a053', freqRange: [40, 120],    yPos: 0.08, depthHint: 0.15 },
-  { id: 'bass',   name: 'Bass',           color: '#00c9a7', freqRange: [60, 250],    yPos: 0.16, depthHint: 0.2 },
-  { id: 'snare',  name: 'Snare',          color: '#e63946', freqRange: [150, 1000],  yPos: 0.35, depthHint: 0.25 },
-  { id: 'keys',   name: 'Keys / Piano',   color: '#f4a261', freqRange: [200, 2000],  yPos: 0.45, depthHint: 0.45 },
-  { id: 'vocal',  name: 'Lead Vocal',     color: '#a78bfa', freqRange: [250, 4000],  yPos: 0.55, depthHint: 0.1 },
-  { id: 'guitar', name: 'Guitare',        color: '#2a9d8f', freqRange: [200, 5000],  yPos: 0.48, depthHint: 0.4 },
-  { id: 'clap',   name: 'Clap / Perc',    color: '#ffd166', freqRange: [500, 4000],  yPos: 0.52, depthHint: 0.3 },
-  { id: 'bgv',    name: 'BGV / Choeurs',  color: '#e91e8c', freqRange: [300, 5000],  yPos: 0.58, depthHint: 0.6 },
-  { id: 'synth',  name: 'Synth / Pad',    color: '#4cc9f0', freqRange: [150, 8000],  yPos: 0.50, depthHint: 0.55 },
-  { id: 'hihat',  name: 'Hi-Hats',        color: '#b5e48c', freqRange: [5000,16000], yPos: 0.82, depthHint: 0.2 },
-  { id: 'cymbal', name: 'Cymbales',       color: '#d0d0d0', freqRange: [4000,18000], yPos: 0.88, depthHint: 0.35 },
-  { id: 'air',    name: 'Air / Brillance', color:'#f0f0ff',  freqRange:[10000,20000], yPos: 0.95, depthHint: 0.7 },
+  { id:'sub',    name:'Sub Bass',      color:'#7c5cfc', freq:[20,60],      yPos:0.03, depth:0.3, transient:false, exclusive:[20,55] },
+  { id:'kick',   name:'Kick',          color:'#d4a053', freq:[40,120],     yPos:0.10, depth:0.15,transient:true,  exclusive:[55,110] },
+  { id:'bass',   name:'Bass',          color:'#00c9a7', freq:[60,250],     yPos:0.18, depth:0.2, transient:false, exclusive:[110,250] },
+  { id:'snare',  name:'Snare',         color:'#e63946', freq:[150,1000],   yPos:0.38, depth:0.25,transient:true,  exclusive:[180,400] },
+  { id:'keys',   name:'Keys / Piano',  color:'#f4a261', freq:[200,2000],   yPos:0.48, depth:0.45,transient:false, exclusive:[400,900] },
+  { id:'vocal',  name:'Lead Vocal',    color:'#a78bfa', freq:[250,4000],   yPos:0.55, depth:0.1, transient:false, exclusive:[900,2500] },
+  { id:'guitar', name:'Guitare',       color:'#2a9d8f', freq:[200,5000],   yPos:0.50, depth:0.4, transient:false, exclusive:[2500,3500] },
+  { id:'clap',   name:'Clap / Perc',   color:'#ffd166', freq:[500,4000],   yPos:0.54, depth:0.3, transient:true,  exclusive:[3500,5000] },
+  { id:'bgv',    name:'BGV / Choeurs', color:'#e91e8c', freq:[300,5000],   yPos:0.60, depth:0.6, transient:false, exclusive:[5000,6500] },
+  { id:'synth',  name:'Synth / Pad',   color:'#4cc9f0', freq:[150,8000],   yPos:0.52, depth:0.55,transient:false, exclusive:[6500,8000] },
+  { id:'hihat',  name:'Hi-Hats',       color:'#b5e48c', freq:[5000,16000], yPos:0.82, depth:0.2, transient:true,  exclusive:[8000,13000] },
+  { id:'cymbal', name:'Cymbales',      color:'#d0d0d0', freq:[4000,18000], yPos:0.90, depth:0.35,transient:false, exclusive:[13000,17000] },
+  { id:'air',    name:'Air / Brillance',color:'#f0f0ff', freq:[10000,20000],yPos:0.96, depth:0.7, transient:false, exclusive:[17000,20000] },
 ];
 
-// Freq zone colors for grid bands
 const FREQ_ZONES = [
-  { label: 'Sub',       range: [20,60],     color: '#7c5cfc', yStart: 0, yEnd: 0.05 },
-  { label: 'Bass',      range: [60,200],    color: '#a78bfa', yStart: 0.05, yEnd: 0.18 },
-  { label: 'Low-Mid',   range: [200,500],   color: '#60a5fa', yStart: 0.18, yEnd: 0.38 },
-  { label: 'Mediums',   range: [500,4000],  color: '#34d399', yStart: 0.38, yEnd: 0.70 },
-  { label: 'Presence',  range: [4000,10000],color: '#fbbf24', yStart: 0.70, yEnd: 0.85 },
-  { label: 'Air',       range:[10000,20000],color: '#f87171', yStart: 0.85, yEnd: 1.0 },
+  { label:'Sub',      color:'#7c5cfc', y0:0,    y1:0.06 },
+  { label:'Bass',     color:'#a78bfa', y0:0.06, y1:0.22 },
+  { label:'Low-Mid',  color:'#60a5fa', y0:0.22, y1:0.42 },
+  { label:'Mediums',  color:'#34d399', y0:0.42, y1:0.72 },
+  { label:'Presence', color:'#fbbf24', y0:0.72, y1:0.86 },
+  { label:'Air',      color:'#f87171', y0:0.86, y1:1.0  },
 ];
 
-const SCENE_HEIGHT = 14; // total Y units
-const SCENE_WIDTH = 12;  // X half-range for pan
-const SCENE_DEPTH = 10;  // Z range for depth
+// Compact scene so elements fill more space
+const SH = 8;   // scene height
+const SW = 6;   // scene width (half)
+const SD = 5;   // scene depth
 
-// ----- State -----
-let audioCtx = null;
-let audioBuffer = null;
-let sourceNode = null;
-let analyserL = null, analyserR = null;
-let splitter = null;
-let isPlaying = false;
-let playStartTime = 0;
-let playOffset = 0;
-let animationId = null;
-let detectedElements = [];
-let hiddenIds = new Set(); // hidden element ids
-let liveMode = false;
+// ======== STATE (per slot) ========
+const slots = [
+  { audioCtx:null, audioBuffer:null, source:null, analyserL:null, analyserR:null, splitter:null,
+    isPlaying:false, playStart:0, playOff:0, elements:[], hiddenIds:new Set(), liveMode:false,
+    scene:null, camera:null, renderer:null, clock:null, groups:[], animId:null,
+    camDist:14, camTheta:0, camPhi:25*Math.PI/180, camTarget:new THREE.Vector3(0,2.5,0),
+    dragging:false, panning:false, lastX:0, lastY:0, hovered:null },
+  { audioCtx:null, audioBuffer:null, source:null, analyserL:null, analyserR:null, splitter:null,
+    isPlaying:false, playStart:0, playOff:0, elements:[], hiddenIds:new Set(), liveMode:false,
+    scene:null, camera:null, renderer:null, clock:null, groups:[], animId:null,
+    camDist:14, camTheta:0, camPhi:25*Math.PI/180, camTarget:new THREE.Vector3(0,2.5,0),
+    dragging:false, panning:false, lastX:0, lastY:0, hovered:null },
+];
 
-// Three.js
-let scene, camera, renderer, clock;
-let elementGroups = []; // { group, mesh, glow, label, shadow, stem, ring }
-let mouseVec = new THREE.Vector2(-999, -999);
-let raycaster = new THREE.Raycaster();
-let hoveredMesh = null;
+let compareMode = false;
+let activeSlot = 0;
+let customColors = {}; // id -> color override
+let thresholdSetting = 40;
 
-// Camera control state
-let camDist = 22;
-let camTheta = 0; // horizontal angle (radians)
-let camPhi = 20 * Math.PI / 180; // elevation angle
-let camTarget = new THREE.Vector3(0, 4, 0);
-let camDragging = false;
-let camPanning = false;
-let camLastX = 0, camLastY = 0;
-
-// Settings
-const settings = {
-  sensitivity: 50,
-  smoothing: 70,
-};
-
-// ----- DOM -----
 const $ = id => document.getElementById(id);
-const canvas = $('scene');
-const dropzone = $('dropzone');
-const fileInput = $('fileInput');
+const mouse = new THREE.Vector2(-999,-999);
+const raycaster = new THREE.Raycaster();
 
-// ----- Audio Context -----
-function getAudioContext() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
-}
+// ======== COLOR PERSISTENCE ========
+try { const c = JSON.parse(localStorage.getItem('mixviz_colors')||'{}'); if(c) customColors=c; } catch(e){}
+function saveColors() { try { localStorage.setItem('mixviz_colors', JSON.stringify(customColors)); } catch(e){} }
+function getColor(id) { return customColors[id] || INSTRUMENT_DEFS.find(d=>d.id===id)?.color || '#888'; }
 
-// ----- File Loading -----
-dropzone.addEventListener('click', () => fileInput.click());
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('dragover');
-  if (e.dataTransfer.files.length) loadFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener('change', e => {
-  if (e.target.files.length) loadFile(e.target.files[0]);
+// ======== FILE LOADING ========
+[0,1].forEach(slot => {
+  const dz = $('dropzone'+slot);
+  const fi = $('fileInput'+slot);
+  dz.addEventListener('click', () => fi.click());
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('dragover'); if(e.dataTransfer.files.length) loadFile(slot, e.dataTransfer.files[0]); });
+  fi.addEventListener('change', e => { if(e.target.files.length) loadFile(slot, e.target.files[0]); });
 });
 
-async function loadFile(file) {
-  $('fileName').textContent = file.name;
-  const ctx = getAudioContext();
-  showAnalyzing(true);
+async function loadFile(slot, file) {
+  $('fileName'+slot).textContent = file.name;
+  const s = slots[slot];
+  if (!s.audioCtx) s.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+  showAnalyzing(slot, true);
   try {
-    const arrayBuffer = await file.arrayBuffer();
-    audioBuffer = await ctx.decodeAudioData(arrayBuffer);
-    hiddenIds.clear();
-    analyzeFullAudio();
-    $('emptyState').style.display = 'none';
-    $('hudBottom').style.display = 'flex';
-    $('transport').style.display = 'flex';
-    $('panelInstruments').style.display = 'block';
-    $('controlsHelp').style.display = 'block';
-    $('freqLegend').style.display = 'flex';
-    $('depthLegend').style.display = 'flex';
-    initThreeScene();
-    buildElementMeshes();
-    startVisualization();
+    const buf = await file.arrayBuffer();
+    s.audioBuffer = await s.audioCtx.decodeAudioData(buf);
+    s.hiddenIds.clear();
+    analyzeAudio(slot);
+    $('emptyState'+slot).style.display = 'none';
+    $('transport'+slot).style.display = 'flex';
+    if(slot===0) { $('hud0').style.display='flex'; $('controlsHelp0').style.display='block'; $('panelInstruments').style.display='block'; }
+    initScene(slot);
+    buildMeshes(slot);
+    startAnim(slot);
+    if(slot===activeSlot) updateInstrumentList();
   } catch(err) {
-    console.error('Error loading audio:', err);
-    alert('Erreur lors du chargement du fichier audio.');
+    console.error(err);
+    alert('Erreur chargement audio');
   }
-  showAnalyzing(false);
+  showAnalyzing(slot, false);
 }
 
-function showAnalyzing(show) {
-  let el = document.querySelector('.analyzing-overlay');
-  if (show && !el) {
-    el = document.createElement('div');
-    el.className = 'analyzing-overlay';
-    el.innerHTML = '<div class="spinner"></div><p>Analyse en cours...</p>';
-    $('canvas-wrap').appendChild(el);
-  } else if (!show && el) {
-    el.remove();
-  }
+function showAnalyzing(slot, show) {
+  const wrap = $('canvasWrap'+slot);
+  let el = wrap.querySelector('.analyzing-overlay');
+  if(show && !el) { el=document.createElement('div'); el.className='analyzing-overlay'; el.innerHTML='<div class="spinner"></div><p>Analyse...</p>'; wrap.appendChild(el); }
+  else if(!show && el) el.remove();
 }
 
-// ======================================================
-//  AUDIO ANALYSIS
-// ======================================================
-function analyzeFullAudio() {
-  if (!audioBuffer) return;
+// ======== IMPROVED AUDIO ANALYSIS ========
+function analyzeAudio(slot) {
+  const s = slots[slot];
+  const buf = s.audioBuffer;
+  if(!buf) return;
 
-  const sampleRate = audioBuffer.sampleRate;
+  const sr = buf.sampleRate;
   const fftSize = 8192;
-  const numChannels = audioBuffer.numberOfChannels;
-  const dataL = audioBuffer.getChannelData(0);
-  const dataR = numChannels > 1 ? audioBuffer.getChannelData(1) : dataL;
-  const length = dataL.length;
-  const freqBinCount = fftSize / 2;
+  const dL = buf.getChannelData(0);
+  const dR = buf.numberOfChannels>1 ? buf.getChannelData(1) : dL;
+  const len = dL.length;
+  const binCount = fftSize/2;
 
   // Hann window
   const win = new Float32Array(fftSize);
-  for (let i = 0; i < fftSize; i++) {
-    win[i] = 0.5 * (1 - Math.cos(2 * Math.PI * i / (fftSize - 1)));
-  }
+  for(let i=0;i<fftSize;i++) win[i] = 0.5*(1-Math.cos(2*Math.PI*i/(fftSize-1)));
 
-  const hopSize = fftSize;
-  const numWindows = Math.min(Math.floor(length / hopSize), 120);
+  const hop = fftSize;
+  const nWin = Math.min(Math.floor(len/hop), 100);
 
-  detectedElements = [];
+  // Compute full spectrum average first
+  const fullSpecL = new Float64Array(binCount);
+  const fullSpecR = new Float64Array(binCount);
+  let specFrames = 0;
 
-  // Init accumulators per instrument
-  const accum = INSTRUMENT_DEFS.map(def => ({
-    ...def,
-    sumL: 0, sumR: 0, count: 0,
-    lowBin: Math.max(1, Math.floor(def.freqRange[0] * fftSize / sampleRate)),
-    highBin: Math.min(freqBinCount - 1, Math.floor(def.freqRange[1] * fftSize / sampleRate)),
+  // For transient detection: compute energy variance over time per band
+  const accum = INSTRUMENT_DEFS.map(d => ({
+    ...d,
+    lowBin: Math.max(1, Math.floor(d.exclusive[0]*fftSize/sr)),
+    highBin: Math.min(binCount-1, Math.floor(d.exclusive[1]*fftSize/sr)),
+    energiesL: [], energiesR: [],
   }));
 
-  for (let w = 0; w < numWindows; w++) {
-    const offset = w * hopSize;
-    const realL = new Float32Array(fftSize);
-    const realR = new Float32Array(fftSize);
+  for(let w=0; w<nWin; w++) {
+    const off = w*hop;
+    const rL = new Float32Array(fftSize);
+    const rR = new Float32Array(fftSize);
+    for(let i=0; i<fftSize && off+i<len; i++) { rL[i]=dL[off+i]*win[i]; rR[i]=dR[off+i]*win[i]; }
 
-    for (let i = 0; i < fftSize && offset + i < length; i++) {
-      realL[i] = dataL[offset + i] * win[i];
-      realR[i] = dataR[offset + i] * win[i];
-    }
-
-    for (const a of accum) {
-      const step = Math.max(1, Math.floor((a.highBin - a.lowBin) / 24));
-      let sL = 0, sR = 0, bc = 0;
-
-      for (let k = a.lowBin; k <= a.highBin; k += step) {
-        // Goertzel
-        const freq = 2 * Math.PI * k / fftSize;
-        const coeff = 2 * Math.cos(freq);
-        let s1L = 0, s2L = 0, s1R = 0, s2R = 0;
-
-        for (let n = 0; n < fftSize; n++) {
-          let s0L = realL[n] + coeff * s1L - s2L;
-          s2L = s1L; s1L = s0L;
-          let s0R = realR[n] + coeff * s1R - s2R;
-          s2R = s1R; s1R = s0R;
+    for(const a of accum) {
+      const step = Math.max(1, Math.floor((a.highBin-a.lowBin)/16));
+      let sL=0, sR=0, bc=0;
+      for(let k=a.lowBin; k<=a.highBin; k+=step) {
+        const freq = 2*Math.PI*k/fftSize;
+        const coeff = 2*Math.cos(freq);
+        let s1L=0,s2L=0,s1R=0,s2R=0;
+        for(let n=0;n<fftSize;n++) {
+          let s0L=rL[n]+coeff*s1L-s2L; s2L=s1L; s1L=s0L;
+          let s0R=rR[n]+coeff*s1R-s2R; s2R=s1R; s1R=s0R;
         }
-
-        sL += Math.sqrt(s1L*s1L + s2L*s2L - coeff*s1L*s2L);
-        sR += Math.sqrt(s1R*s1R + s2R*s2R - coeff*s1R*s2R);
+        sL += Math.sqrt(s1L*s1L+s2L*s2L-coeff*s1L*s2L);
+        sR += Math.sqrt(s1R*s1R+s2R*s2R-coeff*s1R*s2R);
         bc++;
       }
-
-      a.sumL += sL / (bc || 1);
-      a.sumR += sR / (bc || 1);
-      a.count++;
+      a.energiesL.push(sL/(bc||1));
+      a.energiesR.push(sR/(bc||1));
     }
   }
 
-  // Compute results
-  for (const a of accum) {
-    if (a.count > 0) {
-      a.sumL /= a.count;
-      a.sumR /= a.count;
-    }
-    const total = a.sumL + a.sumR;
-    const energy = total / 2;
-    const pan = total > 0 ? (a.sumR - a.sumL) / total : 0;
+  // Compute total RMS energy across all bands
+  let totalEnergy = 0;
+  const bandEnergies = [];
+  for(const a of accum) {
+    const avgL = a.energiesL.reduce((s,v)=>s+v,0)/(a.energiesL.length||1);
+    const avgR = a.energiesR.reduce((s,v)=>s+v,0)/(a.energiesR.length||1);
+    a.avgL = avgL;
+    a.avgR = avgR;
+    a.avgEnergy = (avgL+avgR)/2;
+    totalEnergy += a.avgEnergy;
+    bandEnergies.push(a.avgEnergy);
 
-    const threshold = 0.5 * (settings.sensitivity / 50);
-    if (energy > threshold) {
-      detectedElements.push({
+    // Transient: compute variance (high variance = percussive)
+    if(a.transient) {
+      const allE = a.energiesL.map((v,i)=>(v+a.energiesR[i])/2);
+      const mean = allE.reduce((s,v)=>s+v,0)/(allE.length||1);
+      const variance = allE.reduce((s,v)=>s+(v-mean)*(v-mean),0)/(allE.length||1);
+      a.transientScore = mean > 0 ? Math.sqrt(variance)/mean : 0; // coefficient of variation
+    } else {
+      a.transientScore = 0;
+    }
+  }
+
+  // Dynamic threshold: use relative energy
+  // An element is "present" if its exclusive band has significant energy relative to total
+  const threshold = (thresholdSetting / 100) * 0.15; // 0-15% of total energy
+
+  s.elements = [];
+  for(const a of accum) {
+    const relEnergy = totalEnergy > 0 ? a.avgEnergy / totalEnergy : 0;
+
+    // For transient elements, require higher transient score
+    let confidence = 0;
+    if(a.transient) {
+      // Percussive: need both energy AND transient character
+      const transientOk = a.transientScore > 0.3;
+      if(relEnergy > threshold * 0.5 && transientOk) {
+        confidence = Math.min(1, relEnergy / 0.1) * Math.min(1, a.transientScore / 0.8);
+      }
+    } else {
+      // Tonal: just need energy above threshold
+      if(relEnergy > threshold) {
+        confidence = Math.min(1, relEnergy / 0.15);
+      }
+    }
+
+    if(confidence > 0.1) {
+      const total = a.avgL + a.avgR;
+      const pan = total > 0 ? (a.avgR - a.avgL) / total : 0;
+      s.elements.push({
         id: a.id,
         name: a.name,
-        color: a.color,
-        freqRange: a.freqRange,
+        color: getColor(a.id),
+        freq: a.freq,
+        exclusive: a.exclusive,
         yPos: a.yPos,
-        depthHint: a.depthHint,
-        energy,
+        depth: a.depth,
+        transient: a.transient,
+        energy: a.avgEnergy,
+        relEnergy,
         pan: Math.max(-1, Math.min(1, pan)),
-        volumeDb: 20 * Math.log10(energy + 1e-10),
+        volumeDb: 20*Math.log10(a.avgEnergy+1e-10),
+        confidence,
+        transientScore: a.transientScore,
       });
     }
   }
 
-  // Normalize
-  if (detectedElements.length > 0) {
-    const maxE = Math.max(...detectedElements.map(e => e.energy));
-    const minDb = Math.min(...detectedElements.map(e => e.volumeDb));
-    const maxDb = Math.max(...detectedElements.map(e => e.volumeDb));
-    detectedElements.forEach(e => {
-      e.normalizedVol = Math.pow(e.energy / (maxE || 1), 0.4);
+  // Normalize volumes
+  if(s.elements.length>0) {
+    const maxE = Math.max(...s.elements.map(e=>e.energy));
+    s.elements.forEach(e => {
+      e.normalizedVol = Math.pow(e.energy/(maxE||1), 0.35);
       e.dbDisplay = e.volumeDb.toFixed(1);
-      // Normalize dB to 0-1 for display
-      e.dbNorm = maxDb > minDb ? (e.volumeDb - minDb) / (maxDb - minDb) : 0.5;
     });
   }
-
-  updateInstrumentList();
 }
 
-// ======================================================
-//  SIDEBAR INSTRUMENT LIST (with visibility toggle)
-// ======================================================
+// ======== SIDEBAR ========
 function updateInstrumentList() {
+  const s = slots[activeSlot];
   const list = $('instrumentList');
   list.innerHTML = '';
+  if(!s.elements.length) return;
 
-  detectedElements.sort((a, b) => b.energy - a.energy);
-  $('elCount').textContent = detectedElements.length;
+  s.elements.sort((a,b) => b.energy - a.energy);
+  $('elCount').textContent = s.elements.length;
 
-  detectedElements.forEach(el => {
+  s.elements.forEach(el => {
     const div = document.createElement('div');
-    div.className = 'instrument-item' + (hiddenIds.has(el.id) ? ' hidden-el' : '');
-    div.dataset.id = el.id;
+    div.className = 'instrument-item' + (s.hiddenIds.has(el.id) ? ' hidden-el' : '');
 
-    const volPct = Math.round((el.normalizedVol || 0) * 100);
-    const panLabel = el.pan < -0.1 ? `L${Math.round(Math.abs(el.pan)*100)}` :
-                     el.pan > 0.1 ? `R${Math.round(el.pan*100)}` : 'C';
-
-    // Volume bar color gradient based on level
-    const barColor = volPct > 80 ? 'var(--red)' : volPct > 50 ? 'var(--yellow)' : 'var(--green)';
+    const volPct = Math.round((el.normalizedVol||0)*100);
+    const panLbl = el.pan<-0.1 ? `L${Math.round(Math.abs(el.pan)*100)}` : el.pan>0.1 ? `R${Math.round(el.pan*100)}` : 'C';
+    const barColor = volPct>80?'var(--red)':volPct>50?'var(--yellow)':'var(--green)';
+    const confClass = el.confidence>0.6?'confidence-high':el.confidence>0.3?'confidence-mid':'confidence-low';
+    const confLabel = el.confidence>0.6?'Fort':el.confidence>0.3?'Moy':'Faible';
 
     div.innerHTML = `
-      <span class="eye-toggle" data-id="${el.id}" title="Masquer/afficher">
+      <span class="eye-toggle" data-id="${el.id}">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          ${hiddenIds.has(el.id)
-            ? '<line x1="1" y1="1" x2="23" y2="23"/><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/>'
-            : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
-          }
+          ${s.hiddenIds.has(el.id)
+            ? '<line x1="1" y1="1" x2="23" y2="23"/><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/>'
+            : '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'}
         </svg>
       </span>
-      <span class="instrument-dot" style="background:${el.color}"></span>
+      <span class="color-swatch" style="background:${el.color}" data-id="${el.id}"></span>
+      <input type="color" class="color-input" data-id="${el.id}" value="${el.color}">
       <span class="instrument-name">${el.name}</span>
+      <span class="confidence-badge ${confClass}">${confLabel}</span>
       <span class="vol-bar-wrap"><span class="vol-bar" style="width:${volPct}%;background:${barColor}"></span></span>
-      <span class="instrument-db">${el.dbDisplay} dB</span>
-      <span class="instrument-pan-badge">${panLabel}</span>
+      <span class="instrument-db">${el.dbDisplay}dB</span>
+      <span class="instrument-pan-badge">${panLbl}</span>
     `;
-
     list.appendChild(div);
   });
 
-  // Attach toggle listeners
+  // Eye toggle
   list.querySelectorAll('.eye-toggle').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation();
       const id = btn.dataset.id;
-      if (hiddenIds.has(id)) hiddenIds.delete(id);
-      else hiddenIds.add(id);
+      if(s.hiddenIds.has(id)) s.hiddenIds.delete(id); else s.hiddenIds.add(id);
       updateInstrumentList();
-      updateMeshVisibility();
+      updateVisibility(activeSlot);
+    });
+  });
+
+  // Color picker
+  list.querySelectorAll('.color-swatch').forEach(sw => {
+    sw.addEventListener('click', e => {
+      e.stopPropagation();
+      sw.nextElementSibling.click();
+    });
+  });
+  list.querySelectorAll('.color-input').forEach(inp => {
+    inp.addEventListener('input', e => {
+      const id = inp.dataset.id;
+      customColors[id] = inp.value;
+      saveColors();
+      // Update element color
+      const el = s.elements.find(x=>x.id===id);
+      if(el) el.color = inp.value;
+      updateInstrumentList();
+      // Rebuild meshes to apply new color
+      buildMeshes(activeSlot);
     });
   });
 }
 
-function updateMeshVisibility() {
-  elementGroups.forEach(g => {
-    const visible = !hiddenIds.has(g.elId);
-    g.group.visible = visible;
-  });
+function updateVisibility(slot) {
+  const s = slots[slot];
+  s.groups.forEach(g => { g.group.visible = !s.hiddenIds.has(g.elId); });
 }
 
-// ======================================================
-//  THREE.JS SCENE
-// ======================================================
-function initThreeScene() {
-  if (renderer) {
-    // Clear old element groups only, rebuild
-    elementGroups.forEach(g => scene.remove(g.group));
-    elementGroups = [];
+// ======== THREE.JS SCENE ========
+function initScene(slot) {
+  const s = slots[slot];
+  if(s.renderer) {
+    s.groups.forEach(g => s.scene.remove(g.group));
+    s.groups = [];
     return;
   }
 
-  const wrap = $('canvas-wrap');
+  const wrap = $('canvasWrap'+slot);
+  const canvas = $('scene'+slot);
   const w = wrap.clientWidth;
   const h = wrap.clientHeight;
 
-  scene = new THREE.Scene();
-  scene.fog = new THREE.FogExp2(0x08080d, 0.008);
+  s.scene = new THREE.Scene();
+  s.scene.fog = new THREE.FogExp2(0x08080d, 0.012);
 
-  camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 500);
-  updateCamera();
+  s.camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 300);
+  updateCam(slot);
 
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
-  renderer.setSize(w, h);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setClearColor(0x08080d);
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
-
-  clock = new THREE.Clock();
+  s.renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+  s.renderer.setSize(w, h);
+  s.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  s.renderer.setClearColor(0x08080d);
+  s.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  s.renderer.toneMappingExposure = 1.2;
+  s.clock = new THREE.Clock();
 
   // Lights
-  scene.add(new THREE.AmbientLight(0x404060, 0.5));
+  s.scene.add(new THREE.AmbientLight(0x505070, 0.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8);
+  dl.position.set(5,12,8);
+  s.scene.add(dl);
+  const pl1 = new THREE.PointLight(0x00d9ce, 0.4, 40);
+  pl1.position.set(-8,6,3);
+  s.scene.add(pl1);
+  const pl2 = new THREE.PointLight(0xe91e8c, 0.3, 40);
+  pl2.position.set(8,3,-3);
+  s.scene.add(pl2);
 
-  const dir = new THREE.DirectionalLight(0xffffff, 0.7);
-  dir.position.set(8, 20, 10);
-  scene.add(dir);
-
-  const p1 = new THREE.PointLight(0x00d9ce, 0.5, 60);
-  p1.position.set(-12, 10, 5);
-  scene.add(p1);
-
-  const p2 = new THREE.PointLight(0xe91e8c, 0.3, 60);
-  p2.position.set(12, 5, -5);
-  scene.add(p2);
-
-  // Stage floor
-  createStage();
-  createGrid();
-
-  // Events
-  window.addEventListener('resize', onResize);
-  setupCameraControls();
+  buildStage(s.scene);
+  setupCamControls(slot);
+  window.addEventListener('resize', () => onResize(slot));
 }
 
-function createStage() {
+function buildStage(sc) {
   // Floor
-  const fg = new THREE.PlaneGeometry(SCENE_WIDTH * 2 + 8, SCENE_DEPTH + 8);
-  const fm = new THREE.MeshPhysicalMaterial({
-    color: 0x08080e, metalness: 0.9, roughness: 0.25,
-    transparent: true, opacity: 0.5,
-  });
-  const floor = new THREE.Mesh(fg, fm);
-  floor.rotation.x = -Math.PI / 2;
-  floor.position.set(0, -0.05, 0);
-  scene.add(floor);
+  const fg = new THREE.PlaneGeometry(SW*2+4, SD+4);
+  const fm = new THREE.MeshPhysicalMaterial({ color:0x08080e, metalness:0.85, roughness:0.2, transparent:true, opacity:0.4 });
+  const fl = new THREE.Mesh(fg, fm); fl.rotation.x=-Math.PI/2; fl.position.y=-0.02;
+  sc.add(fl);
 
-  // Floor border glow
-  const eg = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SCENE_WIDTH * 2 + 4, SCENE_DEPTH + 4));
-  const em = new THREE.LineBasicMaterial({ color: 0x00d9ce, transparent: true, opacity: 0.12 });
-  const el = new THREE.LineSegments(eg, em);
-  el.rotation.x = -Math.PI / 2;
-  scene.add(el);
-}
+  // Border
+  const eg = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SW*2+2, SD+2));
+  const em = new THREE.LineBasicMaterial({ color:0x00d9ce, transparent:true, opacity:0.1 });
+  const el = new THREE.LineSegments(eg, em); el.rotation.x=-Math.PI/2;
+  sc.add(el);
 
-function createGrid() {
-  const gridColor = 0x151520;
-  const gridMat = new THREE.LineBasicMaterial({ color: gridColor, transparent: true, opacity: 0.5 });
+  const gm = new THREE.LineBasicMaterial({ color:0x181825, transparent:true, opacity:0.5 });
 
-  // Back wall - frequency zone colored bands
-  FREQ_ZONES.forEach(zone => {
-    const y0 = zone.yStart * SCENE_HEIGHT;
-    const y1 = zone.yEnd * SCENE_HEIGHT;
-    const planeGeo = new THREE.PlaneGeometry(SCENE_WIDTH * 2 + 4, y1 - y0);
-    const planeMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(zone.color),
-      transparent: true,
-      opacity: 0.03,
-      side: THREE.DoubleSide,
-    });
-    const plane = new THREE.Mesh(planeGeo, planeMat);
-    plane.position.set(0, (y0 + y1) / 2, -SCENE_DEPTH / 2 - 1);
-    scene.add(plane);
+  // Back wall freq zones
+  FREQ_ZONES.forEach(z => {
+    const y0=z.y0*SH, y1=z.y1*SH;
+    const pg = new THREE.PlaneGeometry(SW*2+2, y1-y0);
+    const pm = new THREE.MeshBasicMaterial({ color:new THREE.Color(z.color), transparent:true, opacity:0.04, side:THREE.DoubleSide });
+    const p = new THREE.Mesh(pg, pm); p.position.set(0,(y0+y1)/2,-SD/2-0.5);
+    sc.add(p);
 
-    // Horizontal line at zone boundary
-    const lineGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-SCENE_WIDTH - 2, y1, -SCENE_DEPTH / 2 - 1),
-      new THREE.Vector3(SCENE_WIDTH + 2, y1, -SCENE_DEPTH / 2 - 1),
-    ]);
-    const lineMat = new THREE.LineBasicMaterial({
-      color: new THREE.Color(zone.color),
-      transparent: true,
-      opacity: 0.15,
-    });
-    scene.add(new THREE.Line(lineGeo, lineMat));
+    // Zone line
+    const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-SW-1,y1,-SD/2-0.5), new THREE.Vector3(SW+1,y1,-SD/2-0.5)]);
+    sc.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color:new THREE.Color(z.color), transparent:true, opacity:0.2 })));
+
+    // Zone label
+    addLabel(sc, z.label, -SW-2.2, (y0+y1)/2, -SD/2-0.5, z.color, 0.28);
   });
 
-  // Vertical pan guides on back wall
-  for (let i = -4; i <= 4; i++) {
-    const x = i * (SCENE_WIDTH / 4);
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(x, 0, -SCENE_DEPTH / 2 - 1),
-      new THREE.Vector3(x, SCENE_HEIGHT, -SCENE_DEPTH / 2 - 1),
-    ]);
-    const mat = new THREE.LineBasicMaterial({
-      color: i === 0 ? 0x00d9ce : gridColor,
-      transparent: true,
-      opacity: i === 0 ? 0.25 : 0.3,
-    });
-    scene.add(new THREE.Line(geo, mat));
+  // Center line
+  const clg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,-SD/2-0.5), new THREE.Vector3(0,SH,-SD/2-0.5)]);
+  sc.add(new THREE.Line(clg, new THREE.LineBasicMaterial({ color:0x00d9ce, transparent:true, opacity:0.2 })));
+
+  // Pan guides
+  for(let i=-2;i<=2;i++) {
+    if(i===0) continue;
+    const x=i*(SW/2);
+    const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,0,-SD/2-0.5), new THREE.Vector3(x,SH,-SD/2-0.5)]);
+    sc.add(new THREE.Line(lg, gm));
   }
 
-  // Floor grid lines (depth guides)
-  for (let z = -SCENE_DEPTH / 2; z <= SCENE_DEPTH / 2; z += 2) {
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(-SCENE_WIDTH - 2, 0, z),
-      new THREE.Vector3(SCENE_WIDTH + 2, 0, z),
-    ]);
-    scene.add(new THREE.Line(geo, gridMat));
-  }
-  for (let x = -SCENE_WIDTH; x <= SCENE_WIDTH; x += 3) {
-    const geo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(x, 0, -SCENE_DEPTH / 2),
-      new THREE.Vector3(x, 0, SCENE_DEPTH / 2),
-    ]);
-    scene.add(new THREE.Line(geo, gridMat));
+  // Floor depth lines
+  for(let z=-SD/2; z<=SD/2; z+=1.5) {
+    const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-SW-1,0,z), new THREE.Vector3(SW+1,0,z)]);
+    sc.add(new THREE.Line(lg, gm));
   }
 
   // Labels
-  addText('L', -SCENE_WIDTH - 0.5, -0.5, -SCENE_DEPTH / 2 - 1, '#00d9ce', 0.4);
-  addText('C', 0, -0.5, -SCENE_DEPTH / 2 - 1, '#00d9ce', 0.3);
-  addText('R', SCENE_WIDTH + 0.5, -0.5, -SCENE_DEPTH / 2 - 1, '#00d9ce', 0.4);
-
-  // Freq labels on back wall
-  FREQ_ZONES.forEach(zone => {
-    const y = ((zone.yStart + zone.yEnd) / 2) * SCENE_HEIGHT;
-    addText(zone.label, -SCENE_WIDTH - 3, y, -SCENE_DEPTH / 2 - 1, zone.color, 0.22);
-  });
-
-  // Depth labels on floor
-  addText('DEVANT (Dry)', 0, 0.1, SCENE_DEPTH / 2 + 1.2, '#fbbf24', 0.22);
-  addText('ARRIERE (Wet)', 0, 0.1, -SCENE_DEPTH / 2 + 1, '#fbbf24', 0.18);
+  addLabel(sc, 'L', -SW-0.5, -0.3, -SD/2-0.5, '#00d9ce', 0.35);
+  addLabel(sc, 'C', 0, -0.3, -SD/2-0.5, '#00d9ce', 0.25);
+  addLabel(sc, 'R', SW+0.5, -0.3, -SD/2-0.5, '#00d9ce', 0.35);
+  addLabel(sc, 'DRY', 0, 0.05, SD/2+0.8, '#fbbf24', 0.18);
+  addLabel(sc, 'WET', 0, 0.05, -SD/2+0.3, '#fbbf24', 0.18);
 }
 
-function addText(text, x, y, z, color, scale) {
-  const c2 = document.createElement('canvas');
-  c2.width = 512;
-  c2.height = 64;
-  const ctx2 = c2.getContext('2d');
-  ctx2.font = 'bold 36px Inter, sans-serif';
-  ctx2.fillStyle = color;
-  ctx2.textAlign = 'center';
-  ctx2.textBaseline = 'middle';
-  ctx2.fillText(text, 256, 32);
-
-  const tex = new THREE.CanvasTexture(c2);
-  const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.8 });
-  const sprite = new THREE.Sprite(mat);
-  sprite.position.set(x, y, z);
-  sprite.scale.set(scale * 5, scale * 0.7, 1);
-  scene.add(sprite);
-  return sprite;
+function addLabel(sc, text, x, y, z, color, scale) {
+  const c = document.createElement('canvas');
+  c.width=512; c.height=80;
+  const cx = c.getContext('2d');
+  cx.font = 'bold 44px Inter, sans-serif';
+  cx.fillStyle = color;
+  cx.textAlign = 'center';
+  cx.textBaseline = 'middle';
+  cx.fillText(text, 256, 40);
+  const t = new THREE.CanvasTexture(c);
+  const m = new THREE.SpriteMaterial({ map:t, transparent:true, opacity:0.85 });
+  const sp = new THREE.Sprite(m);
+  sp.position.set(x,y,z);
+  sp.scale.set(scale*5, scale*0.9, 1);
+  sc.add(sp);
+  return sp;
 }
 
-// ======================================================
-//  BUILD ELEMENT MESHES
-// ======================================================
-function buildElementMeshes() {
-  elementGroups.forEach(g => scene.remove(g.group));
-  elementGroups = [];
+// ======== ELEMENT 3D SHAPES ========
+// Different geometry per type for better identification
+function getElementGeometry(el, size) {
+  const id = el.id;
+  if(id==='kick' || id==='sub') {
+    // Octahedron for bass/kick
+    return new THREE.OctahedronGeometry(size, 1);
+  }
+  if(id==='snare' || id==='clap') {
+    // Dodecahedron for percussive
+    return new THREE.DodecahedronGeometry(size, 0);
+  }
+  if(id==='hihat' || id==='cymbal') {
+    // Torus for cymbals/hihats
+    return new THREE.TorusGeometry(size*0.8, size*0.25, 8, 24);
+  }
+  if(id==='vocal' || id==='bgv') {
+    // Icosahedron for vocals
+    return new THREE.IcosahedronGeometry(size, 1);
+  }
+  if(id==='bass') {
+    // Box for bass
+    return new THREE.BoxGeometry(size*1.4, size*1.4, size*1.4);
+  }
+  if(id==='air') {
+    // Ring for air
+    return new THREE.TorusGeometry(size*0.7, size*0.15, 6, 32);
+  }
+  // Default sphere
+  return new THREE.SphereGeometry(size, 24, 24);
+}
 
-  detectedElements.forEach((el, i) => {
-    const group = new THREE.Group();
+function buildMeshes(slot) {
+  const s = slots[slot];
+  s.groups.forEach(g => s.scene.remove(g.group));
+  s.groups = [];
 
-    // Size based on volume (clear differentiation)
-    const minSize = 0.25;
-    const maxSize = 2.0;
-    const size = minSize + (el.normalizedVol || 0.5) * (maxSize - minSize);
+  s.elements.forEach((el, i) => {
+    const grp = new THREE.Group();
 
-    // Position
-    const x = el.pan * SCENE_WIDTH;
-    const y = el.yPos * SCENE_HEIGHT;
-    const z = (0.5 - el.depthHint) * SCENE_DEPTH; // front=positive, back=negative
+    const minS = 0.2, maxS = 1.4;
+    const size = minS + (el.normalizedVol||0.5) * (maxS-minS);
 
-    // Main sphere
-    const geo = new THREE.SphereGeometry(size, 32, 32);
+    const x = el.pan * SW;
+    const y = el.yPos * SH;
+    const z = (0.5 - el.depth) * SD;
+
+    // Main mesh with distinct geometry
+    const geo = getElementGeometry(el, size);
     const mat = new THREE.MeshPhysicalMaterial({
       color: new THREE.Color(el.color),
-      metalness: 0.05,
-      roughness: 0.35,
-      clearcoat: 0.6,
-      clearcoatRoughness: 0.15,
-      emissive: new THREE.Color(el.color),
-      emissiveIntensity: 0.2,
-      transparent: true,
-      opacity: 0.9 - el.depthHint * 0.3, // deeper = more transparent
+      metalness: 0.08, roughness: 0.3, clearcoat: 0.5,
+      emissive: new THREE.Color(el.color), emissiveIntensity: 0.25,
+      transparent: true, opacity: 0.92 - el.depth*0.25,
     });
     const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(0, 0, 0);
-    group.add(mesh);
+    // Rotate torus shapes to face camera
+    if(el.id==='hihat'||el.id==='cymbal'||el.id==='air') mesh.rotation.x = Math.PI/2;
+    grp.add(mesh);
 
-    // Glow ring (volume indicator)
-    const ringGeo = new THREE.TorusGeometry(size + 0.15, 0.04 + el.normalizedVol * 0.06, 8, 48);
-    const ringMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(el.color),
-      transparent: true,
-      opacity: 0.25,
-    });
-    const ring = new THREE.Mesh(ringGeo, ringMat);
-    ring.rotation.x = Math.PI / 2;
-    group.add(ring);
-
-    // Outer glow
-    const glowGeo = new THREE.SphereGeometry(size * 1.4, 16, 16);
-    const glowMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(el.color),
-      transparent: true,
-      opacity: 0.06,
-    });
+    // Glow
+    const glowGeo = new THREE.SphereGeometry(size*1.5, 12, 12);
+    const glowMat = new THREE.MeshBasicMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.05 });
     const glow = new THREE.Mesh(glowGeo, glowMat);
-    group.add(glow);
+    grp.add(glow);
 
-    // Label above
-    const label = addText(el.name, 0, size + 0.5, 0, el.color, 0.20);
-    // Remove from scene, add to group instead
-    scene.remove(label);
-    group.add(label);
+    // Label - BIGGER text
+    const lbl = addLabel(s.scene, el.name, 0, size+0.4, 0, el.color, 0.26);
+    s.scene.remove(lbl);
+    grp.add(lbl);
 
-    // dB label below
-    const dbLabel = addText(el.dbDisplay + ' dB', 0, -(size + 0.4), 0, '#8888aa', 0.15);
-    scene.remove(dbLabel);
-    group.add(dbLabel);
+    // dB label
+    const dbLbl = addLabel(s.scene, el.dbDisplay+'dB', 0, -(size+0.3), 0, '#888', 0.16);
+    s.scene.remove(dbLbl);
+    grp.add(dbLbl);
 
-    // Vertical stem to floor
-    const stemGeo = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(0, -y, 0), // goes down to floor in local space
-      new THREE.Vector3(0, 0, 0),
-    ]);
-    const stemMat = new THREE.LineDashedMaterial({
-      color: new THREE.Color(el.color),
-      transparent: true,
-      opacity: 0.15,
-      dashSize: 0.3,
-      gapSize: 0.2,
-    });
-    const stem = new THREE.Line(stemGeo, stemMat);
+    // Stem
+    const stGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-y,0), new THREE.Vector3(0,0,0)]);
+    const stMat = new THREE.LineDashedMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.12, dashSize:0.2, gapSize:0.15 });
+    const stem = new THREE.Line(stGeo, stMat);
     stem.computeLineDistances();
-    group.add(stem);
+    grp.add(stem);
 
-    // Shadow circle on floor
-    const shadowGeo = new THREE.RingGeometry(size * 0.4, size * 0.7, 24);
-    const shadowMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(el.color),
-      transparent: true,
-      opacity: 0.08,
-      side: THREE.DoubleSide,
-    });
-    const shadow = new THREE.Mesh(shadowGeo, shadowMat);
-    shadow.rotation.x = -Math.PI / 2;
-    shadow.position.y = -y + 0.02;
-    group.add(shadow);
+    // Floor ring
+    const shGeo = new THREE.RingGeometry(size*0.3, size*0.55, 20);
+    const shMat = new THREE.MeshBasicMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.06, side:THREE.DoubleSide });
+    const sh = new THREE.Mesh(shGeo, shMat);
+    sh.rotation.x=-Math.PI/2; sh.position.y=-y+0.01;
+    grp.add(sh);
 
-    group.position.set(x, y, z);
+    grp.position.set(x, y, z);
+    s.scene.add(grp);
 
-    scene.add(group);
-
-    elementGroups.push({
-      group,
-      mesh,
-      glow,
-      ring,
-      label,
-      dbLabel,
-      stem,
-      shadow,
-      elId: el.id,
-      element: el,
-      baseY: y,
-      baseSize: size,
-      index: i,
-    });
+    s.groups.push({ group:grp, mesh, glow, elId:el.id, element:el, baseY:y, baseSize:size, index:i });
   });
 
-  updateMeshVisibility();
+  updateVisibility(slot);
 }
 
-// ======================================================
-//  CAMERA CONTROLS (orbit, pan, zoom — no auto-rotate)
-// ======================================================
-function setupCameraControls() {
-  // Left click = orbit
+// ======== CAMERA ========
+function updateCam(slot) {
+  const s = slots[slot];
+  if(!s.camera) return;
+  const x = s.camDist*Math.sin(s.camTheta)*Math.cos(s.camPhi);
+  const y = s.camDist*Math.sin(s.camPhi);
+  const z = s.camDist*Math.cos(s.camTheta)*Math.cos(s.camPhi);
+  s.camera.position.set(s.camTarget.x+x, s.camTarget.y+y, s.camTarget.z+z);
+  s.camera.lookAt(s.camTarget);
+}
+
+function syncSliders(slot) {
+  if(slot!==0) return;
+  $('sliderZoom').value = Math.round(slots[0].camDist);
+  $('sliderElevation').value = Math.round(slots[0].camPhi*180/Math.PI);
+  $('sliderAngle').value = Math.round(slots[0].camTheta*180/Math.PI);
+}
+
+function setupCamControls(slot) {
+  const canvas = $('scene'+slot);
+  const s = slots[slot];
+
   canvas.addEventListener('mousedown', e => {
-    if (e.button === 0) {
-      camDragging = true;
-      camLastX = e.clientX;
-      camLastY = e.clientY;
-    }
-    // Right click = pan
-    if (e.button === 2) {
-      camPanning = true;
-      camLastX = e.clientX;
-      camLastY = e.clientY;
-    }
+    if(e.button===0) { s.dragging=true; s.lastX=e.clientX; s.lastY=e.clientY; }
+    if(e.button===2) { s.panning=true; s.lastX=e.clientX; s.lastY=e.clientY; }
   });
-
   window.addEventListener('mousemove', e => {
-    if (camDragging) {
-      const dx = e.clientX - camLastX;
-      const dy = e.clientY - camLastY;
-      camTheta -= dx * 0.005;
-      camPhi = Math.max(-0.2, Math.min(Math.PI / 2 - 0.05, camPhi + dy * 0.005));
-      camLastX = e.clientX;
-      camLastY = e.clientY;
-      syncSlidersFromCamera();
+    if(s.dragging) {
+      s.camTheta -= (e.clientX-s.lastX)*0.005;
+      s.camPhi = Math.max(-0.2, Math.min(Math.PI/2-0.05, s.camPhi+(e.clientY-s.lastY)*0.005));
+      s.lastX=e.clientX; s.lastY=e.clientY;
+      syncSliders(slot);
     }
-    if (camPanning) {
-      const dx = e.clientX - camLastX;
-      const dy = e.clientY - camLastY;
-      // Pan in camera-local space
+    if(s.panning) {
+      const dx=e.clientX-s.lastX, dy=e.clientY-s.lastY;
       const right = new THREE.Vector3();
-      const up = new THREE.Vector3(0, 1, 0);
-      camera.getWorldDirection(right);
-      right.cross(up).normalize();
-      const panSpeed = camDist * 0.002;
-      camTarget.add(right.multiplyScalar(-dx * panSpeed));
-      camTarget.y += dy * panSpeed;
-      camLastX = e.clientX;
-      camLastY = e.clientY;
+      s.camera.getWorldDirection(right);
+      right.cross(new THREE.Vector3(0,1,0)).normalize();
+      const ps = s.camDist*0.0015;
+      s.camTarget.add(right.multiplyScalar(-dx*ps));
+      s.camTarget.y += dy*ps;
+      s.lastX=e.clientX; s.lastY=e.clientY;
     }
   });
-
   window.addEventListener('mouseup', e => {
-    if (e.button === 0) camDragging = false;
-    if (e.button === 2) camPanning = false;
+    if(e.button===0) s.dragging=false;
+    if(e.button===2) s.panning=false;
   });
-
   canvas.addEventListener('contextmenu', e => e.preventDefault());
-
-  // Wheel = zoom
   canvas.addEventListener('wheel', e => {
     e.preventDefault();
-    camDist *= e.deltaY > 0 ? 1.08 : 0.92;
-    camDist = Math.max(5, Math.min(60, camDist));
-    syncSlidersFromCamera();
-  }, { passive: false });
-
-  // Double-click = reset view
+    s.camDist *= e.deltaY>0?1.08:0.92;
+    s.camDist = Math.max(4, Math.min(40, s.camDist));
+    syncSliders(slot);
+  }, {passive:false});
   canvas.addEventListener('dblclick', () => {
-    camDist = 22;
-    camTheta = 0;
-    camPhi = 20 * Math.PI / 180;
-    camTarget.set(0, 4, 0);
-    syncSlidersFromCamera();
+    s.camDist=14; s.camTheta=0; s.camPhi=25*Math.PI/180; s.camTarget.set(0,2.5,0);
+    syncSliders(slot);
   });
 
-  // Mousemove for tooltip raycasting
+  // Tooltip
   canvas.addEventListener('mousemove', e => {
     const rect = canvas.getBoundingClientRect();
-    mouseVec.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    mouseVec.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    const tooltip = $('tooltip');
-    tooltip.style.left = (e.clientX - rect.left + 16) + 'px';
-    tooltip.style.top = (e.clientY - rect.top - 20) + 'px';
+    mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+    mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+    $('tooltip').style.left = (e.clientX+16)+'px';
+    $('tooltip').style.top = (e.clientY-16)+'px';
   });
-
-  canvas.addEventListener('mouseleave', () => {
-    mouseVec.set(-999, -999);
-    hideTooltip();
-  });
+  canvas.addEventListener('mouseleave', () => { mouse.set(-999,-999); hideTooltip(); });
 }
 
-function updateCamera() {
-  const x = camDist * Math.sin(camTheta) * Math.cos(camPhi);
-  const y = camDist * Math.sin(camPhi);
-  const z = camDist * Math.cos(camTheta) * Math.cos(camPhi);
-  camera.position.set(camTarget.x + x, camTarget.y + y, camTarget.z + z);
-  camera.lookAt(camTarget);
-}
+// ======== ANIMATION ========
+function startAnim(slot) {
+  const s = slots[slot];
+  if(s.animId) cancelAnimationFrame(s.animId);
 
-function syncSlidersFromCamera() {
-  $('sliderZoom').value = Math.round(camDist);
-  $('sliderElevation').value = Math.round(camPhi * 180 / Math.PI);
-  $('sliderAngle').value = Math.round(camTheta * 180 / Math.PI);
-}
+  function anim() {
+    s.animId = requestAnimationFrame(anim);
+    const t = s.clock.getElapsedTime();
+    updateCam(slot);
 
-// Sliders update camera
-$('sliderZoom').addEventListener('input', e => {
-  camDist = parseFloat(e.target.value);
-});
-$('sliderElevation').addEventListener('input', e => {
-  camPhi = parseFloat(e.target.value) * Math.PI / 180;
-});
-$('sliderAngle').addEventListener('input', e => {
-  camTheta = parseFloat(e.target.value) * Math.PI / 180;
-});
-$('sliderSensitivity').addEventListener('input', e => {
-  settings.sensitivity = parseInt(e.target.value);
-});
-$('sliderSmoothing').addEventListener('input', e => {
-  settings.smoothing = parseInt(e.target.value);
-});
-
-// ======================================================
-//  ANIMATION LOOP
-// ======================================================
-function startVisualization() {
-  if (animationId) cancelAnimationFrame(animationId);
-
-  function animate() {
-    animationId = requestAnimationFrame(animate);
-    const time = clock.getElapsedTime();
-
-    updateCamera();
-
-    // Animate meshes (gentle floating)
-    elementGroups.forEach(g => {
-      if (!g.group.visible) return;
-
-      const floatY = Math.sin(time * 0.6 + g.index * 1.7) * 0.12;
-      g.group.position.y = g.baseY + floatY;
-
-      // Subtle pulse
-      const pulse = 1 + Math.sin(time * 1.0 + g.index * 2.3) * 0.025;
-      g.mesh.scale.setScalar(pulse);
-      g.glow.scale.setScalar(pulse);
-
-      // Ring rotation
-      g.ring.rotation.z = time * 0.3 + g.index;
+    s.groups.forEach(g => {
+      if(!g.group.visible) return;
+      g.group.position.y = g.baseY + Math.sin(t*0.5+g.index*1.5)*0.08;
+      const p = 1+Math.sin(t*0.8+g.index*2)*0.02;
+      g.mesh.scale.setScalar(p);
+      g.glow.scale.setScalar(p);
     });
 
-    // Raycasting for hover
-    const meshes = elementGroups.filter(g => g.group.visible).map(g => g.mesh);
-    raycaster.setFromCamera(mouseVec, camera);
-    const intersects = raycaster.intersectObjects(meshes);
+    // Raycasting
+    const meshes = s.groups.filter(g=>g.group.visible).map(g=>g.mesh);
+    raycaster.setFromCamera(mouse, s.camera);
+    const hits = raycaster.intersectObjects(meshes);
 
-    if (hoveredMesh && (!intersects[0] || intersects[0].object !== hoveredMesh)) {
-      const hg = elementGroups.find(g => g.mesh === hoveredMesh);
-      if (hg) {
-        hg.mesh.material.emissiveIntensity = 0.2;
-        hg.ring.material.opacity = 0.25;
-      }
-      hoveredMesh = null;
+    if(s.hovered && (!hits[0] || hits[0].object!==s.hovered)) {
+      const hg = s.groups.find(g=>g.mesh===s.hovered);
+      if(hg) hg.mesh.material.emissiveIntensity=0.25;
+      s.hovered=null;
       hideTooltip();
     }
-
-    if (intersects.length > 0 && intersects[0].object !== hoveredMesh) {
-      hoveredMesh = intersects[0].object;
-      const hg = elementGroups.find(g => g.mesh === hoveredMesh);
-      if (hg) {
-        hg.mesh.material.emissiveIntensity = 0.6;
-        hg.ring.material.opacity = 0.6;
-        showTooltip(hg);
-      }
+    if(hits.length>0 && hits[0].object!==s.hovered) {
+      s.hovered = hits[0].object;
+      const hg = s.groups.find(g=>g.mesh===s.hovered);
+      if(hg) { hg.mesh.material.emissiveIntensity=0.7; showTooltip(hg); }
     }
 
-    // Progress bar
-    if (isPlaying && audioBuffer) {
-      const elapsed = audioCtx.currentTime - playStartTime + playOffset;
-      const pct = Math.min(100, (elapsed / audioBuffer.duration) * 100);
-      $('progressBar').style.width = pct + '%';
-      if (elapsed >= audioBuffer.duration) stopPlayback();
+    // Progress
+    if(s.isPlaying && s.audioBuffer) {
+      const elapsed = s.audioCtx.currentTime - s.playStart + s.playOff;
+      const pct = Math.min(100, elapsed/s.audioBuffer.duration*100);
+      $('progressBar'+slot).style.width = pct+'%';
+      if(elapsed>=s.audioBuffer.duration) stopPlay(slot);
     }
 
-    renderer.render(scene, camera);
+    s.renderer.render(s.scene, s.camera);
   }
-
-  animate();
+  anim();
 }
 
-// ======================================================
-//  TOOLTIP
-// ======================================================
+// ======== TOOLTIP ========
 function showTooltip(g) {
   const el = g.element;
-  const tooltip = $('tooltip');
-  tooltip.style.display = 'block';
-  tooltip.querySelector('.tt-name').textContent = el.name;
-  tooltip.querySelector('.tt-name').style.color = el.color;
-
-  $('ttVol').textContent = Math.round((el.normalizedVol || 0) * 100) + '% (' + el.dbDisplay + ' dB)';
-
-  const bar = $('ttVolBar');
-  bar.style.width = Math.round((el.normalizedVol || 0) * 100) + '%';
-  bar.style.background = el.color;
-
-  $('ttPan').textContent = el.pan < -0.1 ? `Gauche ${Math.round(Math.abs(el.pan)*100)}%` :
-                           el.pan > 0.1 ? `Droite ${Math.round(el.pan*100)}%` : 'Centre';
-
-  $('ttFreq').textContent = formatFreqRange(el.freqRange);
-
-  const depthPct = Math.round(el.depthHint * 100);
-  $('ttDepth').textContent = depthPct < 25 ? `Devant (${depthPct}%)` :
-                             depthPct > 60 ? `Arriere (${depthPct}%)` :
-                             `Milieu (${depthPct}%)`;
+  const tt = $('tooltip');
+  tt.style.display='block';
+  tt.querySelector('.tt-name').textContent = el.name;
+  tt.querySelector('.tt-name').style.color = el.color;
+  $('ttVol').textContent = Math.round((el.normalizedVol||0)*100)+'% ('+el.dbDisplay+'dB)';
+  $('ttVolBar').style.width = Math.round((el.normalizedVol||0)*100)+'%';
+  $('ttVolBar').style.background = el.color;
+  $('ttPan').textContent = el.pan<-0.1?`Gauche ${Math.round(Math.abs(el.pan)*100)}%`:el.pan>0.1?`Droite ${Math.round(el.pan*100)}%`:'Centre';
+  const fmt = f => f>=1000?(f/1000).toFixed(1)+'k':f+'';
+  $('ttFreq').textContent = fmt(el.freq[0])+' – '+fmt(el.freq[1])+' Hz';
+  const dp = Math.round(el.depth*100);
+  $('ttDepth').textContent = dp<25?`Devant (${dp}%)`:dp>60?`Arriere (${dp}%)`:`Milieu (${dp}%)`;
+  $('ttConf').textContent = Math.round(el.confidence*100)+'%';
 }
+function hideTooltip() { $('tooltip').style.display='none'; }
 
-function hideTooltip() {
-  $('tooltip').style.display = 'none';
+// ======== PLAYBACK ========
+document.querySelectorAll('.btnPlay').forEach(b => b.addEventListener('click', ()=>startPlay(+b.dataset.slot)));
+document.querySelectorAll('.btnPause').forEach(b => b.addEventListener('click', ()=>stopPlay(+b.dataset.slot)));
+document.querySelectorAll('.btnLive').forEach(b => b.addEventListener('click', ()=>{
+  const s=slots[+b.dataset.slot]; s.liveMode=!s.liveMode; b.classList.toggle('active',s.liveMode);
+  if(s.liveMode&&s.isPlaying) startLive(+b.dataset.slot);
+}));
+
+function startPlay(slot) {
+  const s = slots[slot];
+  if(!s.audioBuffer||s.isPlaying) return;
+  s.audioCtx.resume();
+  s.source = s.audioCtx.createBufferSource();
+  s.source.buffer = s.audioBuffer;
+  s.splitter = s.audioCtx.createChannelSplitter(2);
+  s.analyserL = s.audioCtx.createAnalyser(); s.analyserR = s.audioCtx.createAnalyser();
+  s.analyserL.fftSize=2048; s.analyserR.fftSize=2048;
+  s.source.connect(s.splitter); s.source.connect(s.audioCtx.destination);
+  s.splitter.connect(s.analyserL,0); s.splitter.connect(s.analyserR,1);
+  s.playStart=s.audioCtx.currentTime; s.source.start(0,s.playOff);
+  s.isPlaying=true;
+  if(s.liveMode) startLive(slot);
+  s.source.onended = () => { if(s.isPlaying){s.isPlaying=false;s.playOff=0;$('progressBar'+slot).style.width='0%';} };
 }
-
-function formatFreqRange(range) {
-  const fmt = f => f >= 1000 ? (f/1000).toFixed(1) + 'k' : f + '';
-  return fmt(range[0]) + ' – ' + fmt(range[1]) + ' Hz';
+function stopPlay(slot) {
+  const s = slots[slot];
+  if(!s.isPlaying) return;
+  s.playOff = s.audioCtx.currentTime-s.playStart+s.playOff;
+  if(s.source){s.source.onended=null;s.source.stop();}
+  s.isPlaying=false;
 }
-
-// ======================================================
-//  PLAYBACK
-// ======================================================
-$('btnPlay').addEventListener('click', startPlayback);
-$('btnPause').addEventListener('click', stopPlayback);
-$('btnLive').addEventListener('click', toggleLiveMode);
-
-function startPlayback() {
-  if (!audioBuffer || isPlaying) return;
-  const ctx = getAudioContext();
-  ctx.resume();
-
-  sourceNode = ctx.createBufferSource();
-  sourceNode.buffer = audioBuffer;
-
-  splitter = ctx.createChannelSplitter(2);
-  analyserL = ctx.createAnalyser();
-  analyserR = ctx.createAnalyser();
-  analyserL.fftSize = 2048;
-  analyserR.fftSize = 2048;
-  analyserL.smoothingTimeConstant = settings.smoothing / 100;
-  analyserR.smoothingTimeConstant = settings.smoothing / 100;
-
-  sourceNode.connect(splitter);
-  sourceNode.connect(ctx.destination);
-  splitter.connect(analyserL, 0);
-  splitter.connect(analyserR, 1);
-
-  playStartTime = ctx.currentTime;
-  sourceNode.start(0, playOffset);
-  isPlaying = true;
-  $('btnPlay').classList.add('active');
-  $('btnPause').classList.remove('active');
-
-  if (liveMode) startLiveUpdate();
-
-  sourceNode.onended = () => {
-    if (isPlaying) {
-      isPlaying = false;
-      playOffset = 0;
-      $('progressBar').style.width = '0%';
-      $('btnPlay').classList.remove('active');
-    }
-  };
-}
-
-function stopPlayback() {
-  if (!isPlaying) return;
-  playOffset = audioCtx.currentTime - playStartTime + playOffset;
-  if (sourceNode) { sourceNode.onended = null; sourceNode.stop(); }
-  isPlaying = false;
-  $('btnPlay').classList.remove('active');
-  $('btnPause').classList.add('active');
-}
-
-function toggleLiveMode() {
-  liveMode = !liveMode;
-  $('btnLive').classList.toggle('active', liveMode);
-  if (liveMode && isPlaying) startLiveUpdate();
-}
-
-function startLiveUpdate() {
-  if (!liveMode || !isPlaying || !analyserL || !analyserR) return;
-
-  const bufLen = analyserL.frequencyBinCount;
-  const dataL = new Float32Array(bufLen);
-  const dataR = new Float32Array(bufLen);
-
-  function update() {
-    if (!liveMode || !isPlaying) return;
-
-    analyserL.getFloatFrequencyData(dataL);
-    analyserR.getFloatFrequencyData(dataR);
-
-    const sr = audioCtx.sampleRate;
-    const fft = analyserL.fftSize;
-
-    elementGroups.forEach((g, i) => {
-      if (!g.group.visible) return;
-      const el = g.element;
-      const lowBin = Math.max(0, Math.floor(el.freqRange[0] * fft / sr));
-      const highBin = Math.min(bufLen - 1, Math.floor(el.freqRange[1] * fft / sr));
-
-      let sL = 0, sR = 0, c = 0;
-      for (let b = lowBin; b <= highBin; b++) {
-        sL += Math.pow(10, dataL[b] / 20);
-        sR += Math.pow(10, dataR[b] / 20);
-        c++;
-      }
-      if (c > 0) { sL /= c; sR /= c; }
-
-      const energy = (sL + sR) / 2;
-      const dynamicScale = Math.min(2.5, Math.max(0.3, energy * 6));
-      const tgt = dynamicScale;
-      g.mesh.scale.lerp(new THREE.Vector3(tgt, tgt, tgt), 0.15);
-      g.glow.scale.lerp(new THREE.Vector3(tgt * 1.4, tgt * 1.4, tgt * 1.4), 0.15);
-      g.ring.scale.lerp(new THREE.Vector3(tgt, tgt, tgt), 0.15);
-      g.glow.material.opacity = Math.min(0.15, energy * 0.3);
-
-      // Live pan
-      const tot = sL + sR;
-      if (tot > 0.001) {
-        const livePan = (sR - sL) / tot;
-        g.group.position.x += (livePan * SCENE_WIDTH - g.group.position.x) * 0.05;
-      }
+function startLive(slot) {
+  const s = slots[slot];
+  if(!s.liveMode||!s.isPlaying||!s.analyserL) return;
+  const bLen=s.analyserL.frequencyBinCount;
+  const dL=new Float32Array(bLen), dR=new Float32Array(bLen);
+  function upd() {
+    if(!s.liveMode||!s.isPlaying) return;
+    s.analyserL.getFloatFrequencyData(dL); s.analyserR.getFloatFrequencyData(dR);
+    const sr=s.audioCtx.sampleRate, fft=s.analyserL.fftSize;
+    s.groups.forEach(g => {
+      if(!g.group.visible) return;
+      const el=g.element;
+      const lo=Math.max(0,Math.floor(el.freq[0]*fft/sr));
+      const hi=Math.min(bLen-1,Math.floor(el.freq[1]*fft/sr));
+      let sL=0,sR=0,c=0;
+      for(let b=lo;b<=hi;b++){sL+=Math.pow(10,dL[b]/20);sR+=Math.pow(10,dR[b]/20);c++;}
+      if(c>0){sL/=c;sR/=c;}
+      const e=(sL+sR)/2;
+      const sc=Math.min(2.5,Math.max(0.3,e*6));
+      g.mesh.scale.lerp(new THREE.Vector3(sc,sc,sc),0.15);
+      g.glow.scale.lerp(new THREE.Vector3(sc*1.5,sc*1.5,sc*1.5),0.15);
+      g.glow.material.opacity=Math.min(0.12,e*0.25);
     });
-
-    requestAnimationFrame(update);
+    requestAnimationFrame(upd);
   }
-
-  update();
+  upd();
 }
 
-// ======================================================
-//  RESIZE
-// ======================================================
-function onResize() {
-  if (!renderer) return;
-  const wrap = $('canvas-wrap');
-  const w = wrap.clientWidth;
-  const h = wrap.clientHeight;
-  camera.aspect = w / h;
-  camera.updateProjectionMatrix();
-  renderer.setSize(w, h);
+// ======== RESIZE ========
+function onResize(slot) {
+  const s=slots[slot]; if(!s.renderer) return;
+  const w=$('canvasWrap'+slot).clientWidth, h=$('canvasWrap'+slot).clientHeight;
+  s.camera.aspect=w/h; s.camera.updateProjectionMatrix(); s.renderer.setSize(w,h);
 }
 
-// ======================================================
-//  SHOW ALL / RESET
-// ======================================================
-$('btnShowAll').addEventListener('click', () => {
-  hiddenIds.clear();
+// ======== COMPARE MODE ========
+$('btnCompare').addEventListener('click', () => {
+  compareMode = !compareMode;
+  $('btnCompare').classList.toggle('active', compareMode);
+  $('app').classList.toggle('compare-mode', compareMode);
+  $('canvasWrap1').style.display = compareMode ? 'block' : 'none';
+  $('uploadTabs').style.display = compareMode ? 'flex' : 'none';
+  $('dropzone1').style.display = compareMode ? 'block' : 'none';
+
+  // Resize both canvases
+  setTimeout(() => { onResize(0); if(compareMode && slots[1].renderer) onResize(1); }, 100);
+});
+
+// Upload tabs
+document.querySelectorAll('.upload-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    activeSlot = +tab.dataset.slot;
+    document.querySelectorAll('.upload-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    updateInstrumentList();
+  });
+});
+
+// ======== SLIDERS ========
+$('sliderZoom').addEventListener('input', e => { slots[0].camDist=parseFloat(e.target.value); });
+$('sliderElevation').addEventListener('input', e => { slots[0].camPhi=parseFloat(e.target.value)*Math.PI/180; });
+$('sliderAngle').addEventListener('input', e => { slots[0].camTheta=parseFloat(e.target.value)*Math.PI/180; });
+$('sliderThreshold').addEventListener('input', e => {
+  thresholdSetting=parseInt(e.target.value);
+  [0,1].forEach(sl => { if(slots[sl].audioBuffer) { analyzeAudio(sl); buildMeshes(sl); } });
   updateInstrumentList();
-  updateMeshVisibility();
+});
+
+// ======== SHOW ALL / RESET ========
+$('btnShowAll').addEventListener('click', () => {
+  slots[activeSlot].hiddenIds.clear();
+  updateInstrumentList();
+  updateVisibility(activeSlot);
 });
 
 $('btnReset').addEventListener('click', () => {
-  if (isPlaying) stopPlayback();
-  audioBuffer = null;
-  sourceNode = null;
-  detectedElements = [];
-  hiddenIds.clear();
-  playOffset = 0;
-
-  if (renderer) {
-    while(scene.children.length > 0) scene.remove(scene.children[0]);
-    elementGroups = [];
-    renderer.dispose();
-    renderer = null;
-  }
-
-  $('emptyState').style.display = 'flex';
-  $('hudBottom').style.display = 'none';
-  $('transport').style.display = 'none';
-  $('panelInstruments').style.display = 'none';
-  $('controlsHelp').style.display = 'none';
-  $('freqLegend').style.display = 'none';
-  $('depthLegend').style.display = 'none';
-  $('instrumentList').innerHTML = '';
-  $('fileName').textContent = '';
-  $('progressBar').style.width = '0%';
-  canvas.width = 0;
-  canvas.height = 0;
+  [0,1].forEach(sl => {
+    const s=slots[sl];
+    if(s.isPlaying) stopPlay(sl);
+    s.audioBuffer=null; s.source=null; s.elements=[]; s.hiddenIds.clear(); s.playOff=0;
+    if(s.renderer) {
+      while(s.scene.children.length>0) s.scene.remove(s.scene.children[0]);
+      s.groups=[]; s.renderer.dispose(); s.renderer=null;
+    }
+    $('emptyState'+sl).style.display='flex';
+    $('transport'+sl).style.display='none';
+    $('fileName'+sl).textContent='';
+    $('progressBar'+sl).style.width='0%';
+    const c=$('scene'+sl); c.width=0; c.height=0;
+  });
+  $('panelInstruments').style.display='none';
+  $('instrumentList').innerHTML='';
+  $('hud0').style.display='none';
+  $('controlsHelp0').style.display='none';
 });
 
 })();
