@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 
 // ── Codes d'accès ──
-// Tu peux changer ces codes quand tu veux
 const ACCESS_CODES = {
-  // Codes accès illimité (MIP™)
-  'MIP2025': { type: 'unlimited', label: 'MIP™' },
-  'MAOMAKER': { type: 'unlimited', label: 'MIP™' },
-  // Codes accès 7 jours (Masterclass gratuite)
-  'MIXFREE': { type: 'trial', days: 7, label: 'Masterclass' },
-  'MASTER7': { type: 'trial', days: 7, label: 'Masterclass' },
+  // Code MIP™ — accès illimité (partagé à tous les élèves MIP)
+  'MIP-7K3F-R9X2': { type: 'unlimited', label: 'MIP™' },
+  // Code Masterclass gratuite — accès 7 jours
+  'MASTER-V4HP': { type: 'trial', days: 7, label: 'Masterclass' },
 };
 
 const STORAGE_KEY = 'mixvisual3d-access';
@@ -141,11 +138,14 @@ export default function AccessGate({ children }) {
 
         {isExpired && (
           <div className="mb-4 p-3 rounded-lg text-sm"
-            style={{ background: '#FF6B0015', border: '1px solid #FF6B0040', color: '#FF6B00' }}>
-            ⏱️ Ton accès {access.label} de {access.days} jours a expiré.<br />
-            <span className="text-xs" style={{ color: '#FF6B0099' }}>
-              Entre un nouveau code pour continuer.
-            </span>
+            style={{ background: '#B800FF15', border: '1px solid #B800FF40', color: '#e0e0f0' }}>
+            <div className="text-base font-bold mb-2" style={{ color: '#B800FF' }}>
+              🔒 Cette app est réservée aux Artistes du MIP™
+            </div>
+            <p className="text-xs leading-relaxed" style={{ color: '#8888aa' }}>
+              Ton accès Masterclass de {access.days} jours a expiré.<br />
+              Tu as rejoint le MIP™ ? Entre ton code MIP pour débloquer l'accès illimité.
+            </p>
           </div>
         )}
 
@@ -192,7 +192,7 @@ export default function AccessGate({ children }) {
         </form>
 
         <div className="mt-6 text-[10px] space-y-1" style={{ color: '#4a4a6a' }}>
-          <p>⭐ Élèves MIP™ → accès illimité</p>
+          <p>⭐ Artistes MIP™ → accès illimité</p>
           <p>⏱️ Masterclass gratuite → accès 7 jours</p>
         </div>
       </div>
