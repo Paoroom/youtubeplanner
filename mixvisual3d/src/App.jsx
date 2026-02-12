@@ -3,8 +3,9 @@ import { DEFAULT_INSTRUMENTS, getRecommendations } from './data'
 import InstrumentPanel from './components/InstrumentPanel'
 import Scene3D from './components/Scene3D'
 import Recommendations from './components/Recommendations'
+import AccessGate from './components/AccessGate'
 
-function App() {
+function AppContent() {
   const [instruments, setInstruments] = useState(
     DEFAULT_INSTRUMENTS.map(i => ({ ...i, active: false }))
   );
@@ -113,6 +114,14 @@ function App() {
         )}
       </div>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AccessGate>
+      <AppContent />
+    </AccessGate>
   );
 }
 
