@@ -2,33 +2,107 @@ import { useState, useEffect } from 'react'
 
 // ── Codes d'accès ──
 const ACCESS_CODES = {
-  // Code MIP™ — accès illimité (partagé à tous les élèves MIP)
   'MIP-7K3F-R9X2': { type: 'unlimited', label: 'MIP™' },
-  // Code Masterclass gratuite — accès 7 jours
   'MASTER-V4HP': { type: 'trial', days: 7, label: 'Masterclass' },
 };
 
 const STORAGE_KEY = 'mixvisual3d-access';
+const IDB_NAME = 'mixvisual3d_db';
+const IDB_STORE = 'access';
 
-function getAccess() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw);
-    if (data.type === 'unlimited') return data;
-    if (data.type === 'trial') {
-      const now = Date.now();
-      const expiry = data.activatedAt + data.days * 24 * 60 * 60 * 1000;
-      if (now < expiry) {
-        return { ...data, remaining: Math.ceil((expiry - now) / (24 * 60 * 60 * 1000)) };
-      }
-      return { ...data, expired: true };
+// ── Cookie helpers ──
+function setCookie(name, value, days) {
+  const d = new Date();
+  d.setTime(d.getTime() + days * 86400000);
+  document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+}
+function getCookie(name) {
+  const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? decodeURIComponent(v.pop()) : null;
+}
+function deleteCookie(name) {
+  document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
+}
+
+// ── IndexedDB helpers ──
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+function idbGet() {
+  return openIDB().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(STORAGE_KEY);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  })).catch(() => null);
+}
+function idbSet(data) {
+  return openIDB().then(db => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put(data, STORAGE_KEY);
+  }).catch(() => {});
+}
+function idbDelete() {
+  return openIDB().then(db => {
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(STORAGE_KEY);
+  }).catch(() => {});
+}
+
+// ── Parse access data ──
+function parseAccess(data) {
+  if (!data) return null;
+  if (data.type === 'unlimited') return data;
+  if (data.type === 'trial') {
+    const now = Date.now();
+    const expiry = data.activatedAt + data.days * 86400000;
+    if (now < expiry) {
+      return { ...data, remaining: Math.ceil((expiry - now) / 86400000) };
     }
-  } catch (e) {}
+    return { ...data, expired: true };
+  }
   return null;
 }
 
-function setAccess(code) {
+// ── Read from best available source (sync) ──
+function getAccess() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) return parseAccess(JSON.parse(raw));
+  } catch {}
+  try {
+    const ck = getCookie(STORAGE_KEY);
+    if (ck) {
+      const data = JSON.parse(ck);
+      localStorage.setItem(STORAGE_KEY, ck);
+      return parseAccess(data);
+    }
+  } catch {}
+  return null;
+}
+
+// ── Async fallback: check IndexedDB ──
+function getAccessAsync() {
+  const sync = getAccess();
+  if (sync) return Promise.resolve(sync);
+  return idbGet().then(data => {
+    if (data) {
+      const json = JSON.stringify(data);
+      localStorage.setItem(STORAGE_KEY, json);
+      setCookie(STORAGE_KEY, json, 400);
+      return parseAccess(data);
+    }
+    return null;
+  });
+}
+
+// ── Write to all 3 stores ──
+function setAccessAll(code) {
   const config = ACCESS_CODES[code.toUpperCase()];
   if (!config) return null;
   const data = {
@@ -38,12 +112,17 @@ function setAccess(code) {
     activatedAt: Date.now(),
     ...(config.days ? { days: config.days } : {}),
   };
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  const json = JSON.stringify(data);
+  localStorage.setItem(STORAGE_KEY, json);
+  setCookie(STORAGE_KEY, json, 400);
+  idbSet(data);
   return getAccess();
 }
 
 function clearAccess() {
   localStorage.removeItem(STORAGE_KEY);
+  deleteCookie(STORAGE_KEY);
+  idbDelete();
 }
 
 export default function AccessGate({ children }) {
@@ -51,6 +130,19 @@ export default function AccessGate({ children }) {
   const [code, setCode] = useState('');
   const [error, setError] = useState('');
   const [shake, setShake] = useState(false);
+  const [loading, setLoading] = useState(!getAccess());
+
+  // On mount: check IndexedDB as fallback
+  useEffect(() => {
+    if (!getAccess()) {
+      getAccessAsync().then(result => {
+        if (result) setAccessState(result);
+        setLoading(false);
+      });
+    } else {
+      setLoading(false);
+    }
+  }, []);
 
   // Re-check access on interval (for trial expiry while app is open)
   useEffect(() => {
@@ -62,7 +154,7 @@ export default function AccessGate({ children }) {
 
   function handleSubmit(e) {
     e.preventDefault();
-    const result = setAccess(code.trim());
+    const result = setAccessAll(code.trim());
     if (result) {
       setAccessState(result);
       setError('');
@@ -79,11 +171,18 @@ export default function AccessGate({ children }) {
     setCode('');
   }
 
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center" style={{ background: '#0a0a12', color: '#666' }}>
+        Chargement...
+      </div>
+    );
+  }
+
   // Access granted (unlimited or valid trial)
   if (access && !access.expired) {
     return (
       <div className="h-screen flex flex-col">
-        {/* Access banner */}
         <div className="flex items-center justify-between px-4 py-1.5 text-xs"
           style={{
             background: access.type === 'unlimited'
@@ -127,7 +226,6 @@ export default function AccessGate({ children }) {
           boxShadow: '0 0 60px rgba(0, 240, 255, 0.05), 0 0 120px rgba(184, 0, 255, 0.03)',
         }}>
 
-        {/* Logo */}
         <div className="text-4xl mb-2">🎛️</div>
         <h1 className="text-2xl font-bold mb-1" style={{
           background: 'linear-gradient(135deg, #00F0FF, #B800FF)',

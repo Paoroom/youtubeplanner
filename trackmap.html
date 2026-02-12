@@ -985,26 +985,99 @@
 
     const DEFAULT_PX_PER_SECOND = 12;
 
-    // ── Access Gate ─────────────────────────────────────
+    // ── Access Gate (triple storage: localStorage + IndexedDB + cookie) ──
     const ACCESS_CODES = {
       'MIP-7K3F-R9X2': { type: 'unlimited', label: 'MIP™' },
       'MASTER-V4HP':   { type: 'trial', days: 7, label: 'Masterclass' },
     };
     const ACCESS_KEY = 'trackmap-access';
+    const IDB_NAME = 'trackmap_db';
+    const IDB_STORE = 'access';
+
+    // ── Cookie helpers ──
+    function setCookie(name, value, days) {
+      const d = new Date(); d.setTime(d.getTime() + days * 86400000);
+      document.cookie = name + '=' + encodeURIComponent(value) + ';expires=' + d.toUTCString() + ';path=/;SameSite=Lax';
+    }
+    function getCookie(name) {
+      const v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+      return v ? decodeURIComponent(v.pop()) : null;
+    }
+    function deleteCookie(name) {
+      document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
+    }
+
+    // ── IndexedDB helpers ──
+    function openIDB() {
+      return new Promise(function(resolve, reject) {
+        const req = indexedDB.open(IDB_NAME, 1);
+        req.onupgradeneeded = function() { req.result.createObjectStore(IDB_STORE); };
+        req.onsuccess = function() { resolve(req.result); };
+        req.onerror = function() { reject(req.error); };
+      });
+    }
+    function idbGet() {
+      return openIDB().then(function(db) {
+        return new Promise(function(resolve, reject) {
+          const tx = db.transaction(IDB_STORE, 'readonly');
+          const req = tx.objectStore(IDB_STORE).get(ACCESS_KEY);
+          req.onsuccess = function() { resolve(req.result || null); };
+          req.onerror = function() { reject(req.error); };
+        });
+      }).catch(function() { return null; });
+    }
+    function idbSet(data) {
+      return openIDB().then(function(db) {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).put(data, ACCESS_KEY);
+      }).catch(function() {});
+    }
+    function idbDelete() {
+      return openIDB().then(function(db) {
+        const tx = db.transaction(IDB_STORE, 'readwrite');
+        tx.objectStore(IDB_STORE).delete(ACCESS_KEY);
+      }).catch(function() {});
+    }
+
+    // ── Read access from best available source ──
+    function parseAccess(data) {
+      if (!data) return null;
+      if (data.type === 'unlimited') return { ...data, valid: true };
+      if (data.type === 'trial') {
+        const elapsed = Date.now() - data.activatedAt;
+        const remaining = (data.days * 86400000) - elapsed;
+        return { ...data, valid: remaining > 0, remaining, daysLeft: Math.ceil(remaining / 86400000) };
+      }
+      return null;
+    }
 
     function getAccess() {
       try {
         const raw = localStorage.getItem(ACCESS_KEY);
-        if (!raw) return null;
-        const data = JSON.parse(raw);
-        if (data.type === 'unlimited') return { ...data, valid: true };
-        if (data.type === 'trial') {
-          const elapsed = Date.now() - data.activatedAt;
-          const remaining = (data.days * 86400000) - elapsed;
-          return { ...data, valid: remaining > 0, remaining, daysLeft: Math.ceil(remaining / 86400000) };
+        if (raw) return parseAccess(JSON.parse(raw));
+      } catch {}
+      try {
+        const ck = getCookie(ACCESS_KEY);
+        if (ck) {
+          const data = JSON.parse(ck);
+          localStorage.setItem(ACCESS_KEY, ck);
+          return parseAccess(data);
+        }
+      } catch {}
+      return null;
+    }
+
+    function getAccessAsync() {
+      const sync = getAccess();
+      if (sync) return Promise.resolve(sync);
+      return idbGet().then(function(data) {
+        if (data) {
+          localStorage.setItem(ACCESS_KEY, JSON.stringify(data));
+          setCookie(ACCESS_KEY, JSON.stringify(data), 400);
+          return parseAccess(data);
         }
         return null;
-      } catch { return null; }
+      });
     }
 
     function setAccess(code) {
@@ -1014,7 +1087,10 @@
         type: config.type, label: config.label, code: code.toUpperCase(),
         activatedAt: Date.now(), ...(config.days ? { days: config.days } : {}),
       };
-      localStorage.setItem(ACCESS_KEY, JSON.stringify(data));
+      const json = JSON.stringify(data);
+      localStorage.setItem(ACCESS_KEY, json);
+      setCookie(ACCESS_KEY, json, 400);
+      idbSet(data);
       return getAccess();
     }
 
@@ -1022,6 +1098,18 @@
       const [access, setAccessState] = useState(getAccess);
       const [input, setInput] = useState('');
       const [shake, setShake] = useState(false);
+      const [loading, setLoading] = useState(!getAccess());
+
+      useEffect(function() {
+        if (!getAccess()) {
+          getAccessAsync().then(function(result) {
+            if (result) setAccessState(result);
+            setLoading(false);
+          });
+        } else {
+          setLoading(false);
+        }
+      }, []);
 
       const isValid = access && access.valid;
       const isExpired = access && !access.valid;
@@ -1040,8 +1128,16 @@
 
       function handleLogout() {
         localStorage.removeItem(ACCESS_KEY);
+        deleteCookie(ACCESS_KEY);
+        idbDelete();
         setAccessState(null);
         setInput('');
+      }
+
+      if (loading) {
+        return React.createElement('div', {
+          style: { height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#666' }
+        }, 'Chargement...');
       }
 
       if (isValid) {
