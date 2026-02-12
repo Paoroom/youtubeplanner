@@ -26,6 +26,13 @@
     ::-webkit-scrollbar-thumb:hover { background: #00D9CE; }
 
     #app { height: 100vh; overflow: hidden; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-10px); }
+      40% { transform: translateX(10px); }
+      60% { transform: translateX(-6px); }
+      80% { transform: translateX(6px); }
+    }
 
     .header {
       display: flex;
@@ -977,6 +984,154 @@
     ];
 
     const DEFAULT_PX_PER_SECOND = 12;
+
+    // ── Access Gate ─────────────────────────────────────
+    const ACCESS_CODES = {
+      'MIP-7K3F-R9X2': { type: 'unlimited', label: 'MIP™' },
+      'MASTER-V4HP':   { type: 'trial', days: 7, label: 'Masterclass' },
+    };
+    const ACCESS_KEY = 'trackmap-access';
+
+    function getAccess() {
+      try {
+        const raw = localStorage.getItem(ACCESS_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (data.type === 'unlimited') return { ...data, valid: true };
+        if (data.type === 'trial') {
+          const elapsed = Date.now() - data.activatedAt;
+          const remaining = (data.days * 86400000) - elapsed;
+          return { ...data, valid: remaining > 0, remaining, daysLeft: Math.ceil(remaining / 86400000) };
+        }
+        return null;
+      } catch { return null; }
+    }
+
+    function setAccess(code) {
+      const config = ACCESS_CODES[code.toUpperCase()];
+      if (!config) return null;
+      const data = {
+        type: config.type, label: config.label, code: code.toUpperCase(),
+        activatedAt: Date.now(), ...(config.days ? { days: config.days } : {}),
+      };
+      localStorage.setItem(ACCESS_KEY, JSON.stringify(data));
+      return getAccess();
+    }
+
+    function AccessGate({ children }) {
+      const [access, setAccessState] = useState(getAccess);
+      const [input, setInput] = useState('');
+      const [shake, setShake] = useState(false);
+
+      const isValid = access && access.valid;
+      const isExpired = access && !access.valid;
+
+      function handleSubmit(e) {
+        e.preventDefault();
+        const result = setAccess(input.trim());
+        if (result) {
+          setAccessState(result);
+          setInput('');
+        } else {
+          setShake(true);
+          setTimeout(() => setShake(false), 500);
+        }
+      }
+
+      function handleLogout() {
+        localStorage.removeItem(ACCESS_KEY);
+        setAccessState(null);
+        setInput('');
+      }
+
+      if (isValid) {
+        return React.createElement('div', null,
+          React.createElement('div', {
+            style: {
+              position: 'fixed', top: 0, right: 0, zIndex: 9999,
+              padding: '4px 14px', fontSize: '11px',
+              background: access.type === 'unlimited' ? '#00D9CE20' : '#E91E8C20',
+              color: access.type === 'unlimited' ? '#00D9CE' : '#E91E8C',
+              borderBottomLeftRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px',
+            }
+          },
+            access.type === 'unlimited' ? '\u2B50 MIP\u2122 \u2014 Acc\u00E8s illimit\u00E9' : '\u23F1 Masterclass \u2014 ' + access.daysLeft + 'j restants',
+            React.createElement('button', {
+              onClick: handleLogout,
+              style: { background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '10px', marginLeft: '6px' }
+            }, 'D\u00E9connexion')
+          ),
+          children
+        );
+      }
+
+      return React.createElement('div', {
+        style: {
+          height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 50%, #0a0a0a 100%)',
+        }
+      },
+        React.createElement('div', {
+          style: {
+            background: '#111119', border: '1px solid #2a2a3a', borderRadius: '16px',
+            padding: '40px', width: '380px', textAlign: 'center',
+            animation: shake ? 'shake 0.5s ease-in-out' : 'none',
+          }
+        },
+          React.createElement('div', {
+            style: {
+              fontSize: '28px', fontWeight: 800, marginBottom: '4px',
+              background: 'linear-gradient(135deg, #00D9CE, #E91E8C)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }
+          }, 'TrackMap\u2122'),
+          React.createElement('div', { style: { fontSize: '12px', color: '#666', marginBottom: '24px' } }, 'by Mao Maker'),
+
+          isExpired && React.createElement('div', {
+            style: {
+              marginBottom: '16px', padding: '12px', borderRadius: '8px', textAlign: 'left',
+              background: '#B800FF15', border: '1px solid #B800FF40',
+            }
+          },
+            React.createElement('div', {
+              style: { fontSize: '14px', fontWeight: 700, color: '#B800FF', marginBottom: '6px' }
+            }, '\uD83D\uDD12 Cette app est r\u00E9serv\u00E9e aux Artistes du MIP\u2122'),
+            React.createElement('p', {
+              style: { fontSize: '11px', color: '#8888aa', lineHeight: '1.5' }
+            }, 'Ton acc\u00E8s Masterclass de ' + access.days + ' jours a expir\u00E9.', React.createElement('br'), 'Tu as rejoint le MIP\u2122 ? Entre ton code MIP pour d\u00E9bloquer l\u2019acc\u00E8s illimit\u00E9.')
+          ),
+
+          !isExpired && React.createElement('p', {
+            style: { fontSize: '13px', color: '#8888aa', marginBottom: '20px' }
+          }, 'Entre ton code d\u2019acc\u00E8s pour utiliser l\u2019application'),
+
+          React.createElement('form', { onSubmit: handleSubmit, style: { display: 'flex', gap: '8px' } },
+            React.createElement('input', {
+              type: 'text', value: input, placeholder: 'Code d\u2019acc\u00E8s...',
+              onChange: function(e) { setInput(e.target.value); },
+              style: {
+                flex: 1, padding: '10px 14px', background: '#1a1a2e', border: '1px solid #333',
+                borderRadius: '8px', color: '#fff', fontSize: '14px', outline: 'none',
+                letterSpacing: '2px', textTransform: 'uppercase',
+              }
+            }),
+            React.createElement('button', {
+              type: 'submit',
+              style: {
+                padding: '10px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #00D9CE, #E91E8C)', color: '#fff',
+                fontWeight: 700, fontSize: '14px',
+              }
+            }, '\u2192')
+          ),
+
+          React.createElement('div', { style: { marginTop: '20px', fontSize: '10px', color: '#4a4a6a' } },
+            React.createElement('p', null, '\u2B50 Artistes MIP\u2122 \u2192 acc\u00E8s illimit\u00E9'),
+            React.createElement('p', null, '\u23F1 Masterclass gratuite \u2192 acc\u00E8s 7 jours')
+          )
+        )
+      );
+    }
 
     // ── App ──────────────────────────────────────────
     function App() {
@@ -2462,7 +2617,7 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('app')).render(<App />);
+    ReactDOM.createRoot(document.getElementById('app')).render(<AccessGate><App /></AccessGate>);
   </script>
 </body>
 </html>
