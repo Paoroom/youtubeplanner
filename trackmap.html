@@ -968,6 +968,15 @@
         { name: 'Drop 2', startMeasure: 52, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Lead', 'Vocals', 'Arpège'], energy: 10 },
         { name: 'Outro', startMeasure: 68, measures: 8, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
       ]),
+      'release-mode': () => buildTemplate('Release Mode', 124, [
+        { name: 'Intro', startMeasure: 0, measures: 4, elements: ['Pad', 'Ambiance'], energy: 3 },
+        { name: 'Couplet 1', startMeasure: 4, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals'], energy: 5 },
+        { name: 'Refrain', startMeasure: 12, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals'], energy: 9 },
+        { name: 'Couplet 2', startMeasure: 28, measures: 8, elements: ['Kick', 'Bass', 'Hi-Hats', 'Chords', 'Vocals', 'Pad'], energy: 6 },
+        { name: 'Break', startMeasure: 36, measures: 8, elements: ['Pad', 'Vocals', 'Ambiance', 'FX'], energy: 4 },
+        { name: 'Refrain 2', startMeasure: 44, measures: 16, elements: ['Kick', 'Drums', 'Hi-Hats', 'Bass', 'Chords', 'Mélodie', 'Lead', 'Vocals', 'Pad'], energy: 10 },
+        { name: 'Outro', startMeasure: 60, measures: 4, elements: ['Pad', 'Ambiance', 'Chords'], energy: 3 },
+      ]),
     };
 
     const STYLE_OPTIONS = [
@@ -981,6 +990,7 @@
       { value: 'boom-bap', label: 'Hip-Hop Boom Bap', bpm: 90 },
       { value: 'pop-radio', label: 'Pop Radio Ready', bpm: 120 },
       { value: 'future-bass', label: 'Future Bass / EDM', bpm: 135 },
+      { value: 'release-mode', label: 'Release Mode', bpm: 124 },
     ];
 
     const DEFAULT_PX_PER_SECOND = 12;
@@ -1266,6 +1276,13 @@
       const playOffsetRef = useRef(0);
       const animFrameRef = useRef(null);
       const [detectedBpm, setDetectedBpm] = useState(null);
+      const [userPresets, setUserPresets] = useState(() => {
+        try { return JSON.parse(localStorage.getItem('trackmap-user-presets') || '[]'); } catch { return []; }
+      });
+      const [showPresetMenu, setShowPresetMenu] = useState(false);
+      const [presetName, setPresetName] = useState('');
+      const [renamingElIdx, setRenamingElIdx] = useState(null);
+      const [renameElValue, setRenameElValue] = useState('');
 
       // ── Audio import & waveform ──
       function detectBPM(buffer) {
@@ -1724,12 +1741,14 @@
         const lastNote = notes[notes.length - 1];
         const startTime = lastNote ? lastNote.startTime + lastNote.duration : 0;
         const dur = measuresToSeconds(8, bpm);
+        const newId = 'note-' + Date.now();
         setNotes(prev => [...prev, {
-          id: 'note-' + Date.now(),
+          id: newId,
           startTime,
           duration: dur,
           text: '',
         }]);
+        setEditingNoteId(newId);
       }
 
       function updateNoteText(id, text) {
@@ -1821,7 +1840,12 @@
       // Keyboard: Delete/Backspace to remove, Cmd+D to duplicate
       useEffect(() => {
         function handleKeyDown(e) {
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+          if (e.key === ' ') {
+            e.preventDefault();
+            togglePlay();
+            return;
+          }
           if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId) {
             e.preventDefault();
             setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
@@ -1838,7 +1862,7 @@
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockId, blocks]);
+      }, [selectedBlockId, blocks, isPlaying, audioBuffer]);
 
       // Deselect block when clicking on empty area
       function handleTimelineClick(e) {
@@ -2256,6 +2280,86 @@
         }
       }
 
+      // ── User Presets ──
+      function saveUserPreset() {
+        if (!presetName.trim()) return;
+        const preset = {
+          name: presetName.trim(),
+          bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset,
+          elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)),
+          savedAt: Date.now(),
+        };
+        const updated = [...userPresets, preset];
+        setUserPresets(updated);
+        localStorage.setItem('trackmap-user-presets', JSON.stringify(updated));
+        setPresetName('');
+        setShowPresetMenu(false);
+      }
+
+      function loadUserPreset(preset) {
+        setBpm(preset.bpm);
+        setBlocks(preset.blocks);
+        setTracks(preset.tracks);
+        setTotalDuration(preset.totalDuration);
+        setSectionMarkers(preset.sectionMarkers || []);
+        setEnergyPoints(preset.energyPoints || []);
+        setNotes(preset.notes || []);
+        if (preset.audioOffset) setAudioOffset(preset.audioOffset);
+        if (preset.elements && preset.elements.length) setElements([...ELEMENTS, ...preset.elements]);
+        setShowPresetMenu(false);
+      }
+
+      function deleteUserPreset(idx) {
+        const updated = userPresets.filter((_, i) => i !== idx);
+        setUserPresets(updated);
+        localStorage.setItem('trackmap-user-presets', JSON.stringify(updated));
+      }
+
+      // ── MIDI Export (sections only) ──
+      function exportMIDISections() {
+        try {
+          const midi = new Midi();
+          midi.header.setTempo(bpm);
+          const track = midi.addTrack();
+          track.name = 'Sections';
+          track.channel = 0;
+          sectionMarkers.forEach((sec, i) => {
+            track.addNote({
+              midi: 60 + (i % 12),
+              time: sec.startTime,
+              duration: sec.duration,
+              velocity: 0.8,
+            });
+          });
+          const arrayBuffer = midi.toArray();
+          const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+          const link = document.createElement('a');
+          link.download = `trackmap-sections-${style}.mid`;
+          link.href = URL.createObjectURL(blob);
+          link.click();
+        } catch(err) {
+          alert('Erreur export MIDI : ' + err.message);
+        }
+      }
+
+      // ── Rename element ──
+      function startRenameElement(idx) {
+        setRenamingElIdx(idx);
+        setRenameElValue(elements[idx].name);
+      }
+      function confirmRenameElement() {
+        if (renamingElIdx === null) return;
+        const oldName = elements[renamingElIdx].name;
+        const newName = renameElValue.trim();
+        if (newName && newName !== oldName) {
+          setElements(prev => prev.map((el, i) => i === renamingElIdx ? { ...el, name: newName } : el));
+          setBlocks(prev => prev.map(b => b.element === oldName ? { ...b, element: newName, track: newName } : b));
+          setTracks(prev => prev.map(t => t === oldName ? newName : t));
+        }
+        setRenamingElIdx(null);
+        setRenameElValue('');
+      }
+
       // ── Save / Load localStorage ──
       function saveProject() {
         const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
@@ -2401,7 +2505,20 @@
                     />
                     <span className="palette-dot" style={{ background: el.color }}></span>
                   </label>
-                  {el.name}
+                  {renamingElIdx === idx ? (
+                    <input
+                      autoFocus
+                      value={renameElValue}
+                      onChange={e => setRenameElValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') confirmRenameElement(); if (e.key === 'Escape') { setRenamingElIdx(null); setRenameElValue(''); } }}
+                      onBlur={confirmRenameElement}
+                      onClick={e => e.stopPropagation()}
+                      onMouseDown={e => e.stopPropagation()}
+                      style={{ background: '#222', border: '1px solid #00D9CE', color: '#fff', fontSize: 12, padding: '1px 4px', borderRadius: 4, width: 70, outline: 'none' }}
+                    />
+                  ) : (
+                    <span onClick={e => { e.stopPropagation(); startRenameElement(idx); }} style={{ cursor: 'text' }} title="Cliquer pour renommer">{el.name}</span>
+                  )}
                 </div>
               ))}
               {addingElement ? (
@@ -2695,18 +2812,62 @@
               {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer</span>}
             </div>
             <div className="footer-actions">
-              <button className="btn btn-primary" onClick={exportMIDI}>
-                {'\uD83D\uDCE5'} Export MIDI
+              <button className="btn btn-primary" onClick={exportMIDI} title="MIDI complet (sections + éléments)">
+                {'\uD83D\uDCE5'} MIDI Complet
+              </button>
+              <button className="btn btn-primary" onClick={exportMIDISections} title="MIDI sections uniquement" style={{ background: '#555' }}>
+                {'\uD83D\uDCE5'} MIDI Sections
               </button>
               <button className="btn btn-secondary" onClick={exportPNG}>
-                {'\uD83D\uDCF7'} Export PNG
+                {'\uD83D\uDCF7'} PNG
               </button>
               <button className="btn btn-secondary" onClick={exportTXT}>
-                {'\uD83D\uDCDD'} Export TXT
+                {'\uD83D\uDCDD'} TXT
               </button>
-              <button className="btn btn-accent" onClick={saveProject}>
-                {'\uD83D\uDCBE'} Sauvegarder
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button className="btn btn-accent" onClick={() => setShowPresetMenu(!showPresetMenu)}>
+                  {'\uD83D\uDCBE'} Presets
+                </button>
+                {showPresetMenu && (
+                  <div style={{
+                    position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, background: '#222',
+                    border: '1px solid #444', borderRadius: 10, padding: 10, minWidth: 220, zIndex: 100,
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                  }}>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontWeight: 700 }}>Mes presets</div>
+                    {userPresets.length === 0 && <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Aucun preset sauvegardé</div>}
+                    {userPresets.map((p, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <button onClick={() => loadUserPreset(p)} style={{
+                          flex: 1, textAlign: 'left', background: '#333', border: '1px solid #555', color: '#fff',
+                          borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer',
+                        }}>{p.name}</button>
+                        <button onClick={() => deleteUserPreset(i)} style={{
+                          background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14,
+                        }} title="Supprimer">&times;</button>
+                      </div>
+                    ))}
+                    <div style={{ borderTop: '1px solid #333', paddingTop: 8, marginTop: 6, display: 'flex', gap: 4 }}>
+                      <input
+                        placeholder="Nom du preset..."
+                        value={presetName}
+                        onChange={e => setPresetName(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveUserPreset(); }}
+                        style={{ flex: 1, background: '#1a1a1a', border: '1px solid #444', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
+                      />
+                      <button onClick={saveUserPreset} style={{
+                        background: '#00D9CE', color: '#000', border: 'none', borderRadius: 6, padding: '4px 10px',
+                        fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      }}>Sauver</button>
+                    </div>
+                    <div style={{ borderTop: '1px solid #333', paddingTop: 6, marginTop: 6 }}>
+                      <button className="btn btn-accent" onClick={() => { saveProject(); setShowPresetMenu(false); }} style={{ width: '100%', fontSize: 11, padding: '4px 8px' }}>
+                        {'\uD83D\uDCBE'} Sauvegarde rapide
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
