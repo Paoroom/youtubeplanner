@@ -2398,10 +2398,28 @@
             <div className="header-controls">
               <div>
                 <div className="label">Style</div>
-                <select className="select-styled" value={style} onChange={handleStyleChange}>
-                  {STYLE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
+                <select className="select-styled" value={style} onChange={e => {
+                  const v = e.target.value;
+                  if (v.startsWith('user-preset-')) {
+                    const idx = parseInt(v.replace('user-preset-', ''));
+                    const preset = userPresets[idx];
+                    if (preset) loadUserPreset(preset);
+                  } else {
+                    handleStyleChange(e);
+                  }
+                }}>
+                  <optgroup label="Styles">
+                    {STYLE_OPTIONS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </optgroup>
+                  {userPresets.length > 0 && (
+                    <optgroup label="Mes presets">
+                      {userPresets.map((p, i) => (
+                        <option key={'up-' + i} value={'user-preset-' + i}>{p.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               </div>
               <div>
@@ -2826,45 +2844,47 @@
               </button>
               <div style={{ position: 'relative' }}>
                 <button className="btn btn-accent" onClick={() => setShowPresetMenu(!showPresetMenu)}>
-                  {'\uD83D\uDCBE'} Presets
+                  {'\uD83D\uDCBE'} Sauvegarder
                 </button>
                 {showPresetMenu && (
                   <div style={{
                     position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, background: '#222',
-                    border: '1px solid #444', borderRadius: 10, padding: 10, minWidth: 220, zIndex: 100,
+                    border: '1px solid #444', borderRadius: 10, padding: 10, minWidth: 240, zIndex: 100,
                     boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
                   }}>
-                    <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontWeight: 700 }}>Mes presets</div>
-                    {userPresets.length === 0 && <div style={{ fontSize: 11, color: '#555', marginBottom: 6 }}>Aucun preset sauvegardé</div>}
-                    {userPresets.map((p, i) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <button onClick={() => loadUserPreset(p)} style={{
-                          flex: 1, textAlign: 'left', background: '#333', border: '1px solid #555', color: '#fff',
-                          borderRadius: 6, padding: '4px 8px', fontSize: 12, cursor: 'pointer',
-                        }}>{p.name}</button>
-                        <button onClick={() => deleteUserPreset(i)} style={{
-                          background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: 14,
-                        }} title="Supprimer">&times;</button>
+                    <button className="btn btn-accent" onClick={() => { saveProject(); setShowPresetMenu(false); }} style={{ width: '100%', fontSize: 12, padding: '6px 8px', marginBottom: 8 }}>
+                      {'\uD83D\uDCBE'} Sauvegarde rapide
+                    </button>
+                    <div style={{ borderTop: '1px solid #333', paddingTop: 8, marginBottom: 6 }}>
+                      <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontWeight: 700 }}>Sauver comme preset</div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <input
+                          placeholder="Nom du preset..."
+                          value={presetName}
+                          onChange={e => setPresetName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') saveUserPreset(); }}
+                          style={{ flex: 1, background: '#1a1a1a', border: '1px solid #444', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
+                        />
+                        <button onClick={saveUserPreset} style={{
+                          background: '#00D9CE', color: '#000', border: 'none', borderRadius: 6, padding: '4px 10px',
+                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                        }}>OK</button>
                       </div>
-                    ))}
-                    <div style={{ borderTop: '1px solid #333', paddingTop: 8, marginTop: 6, display: 'flex', gap: 4 }}>
-                      <input
-                        placeholder="Nom du preset..."
-                        value={presetName}
-                        onChange={e => setPresetName(e.target.value)}
-                        onKeyDown={e => { if (e.key === 'Enter') saveUserPreset(); }}
-                        style={{ flex: 1, background: '#1a1a1a', border: '1px solid #444', color: '#fff', borderRadius: 6, padding: '4px 8px', fontSize: 12, outline: 'none' }}
-                      />
-                      <button onClick={saveUserPreset} style={{
-                        background: '#00D9CE', color: '#000', border: 'none', borderRadius: 6, padding: '4px 10px',
-                        fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                      }}>Sauver</button>
+                      <div style={{ fontSize: 10, color: '#555', marginTop: 4 }}>Apparaît dans le menu Style {'\u2192'} Mes presets</div>
                     </div>
-                    <div style={{ borderTop: '1px solid #333', paddingTop: 6, marginTop: 6 }}>
-                      <button className="btn btn-accent" onClick={() => { saveProject(); setShowPresetMenu(false); }} style={{ width: '100%', fontSize: 11, padding: '4px 8px' }}>
-                        {'\uD83D\uDCBE'} Sauvegarde rapide
-                      </button>
-                    </div>
+                    {userPresets.length > 0 && (
+                      <div style={{ borderTop: '1px solid #333', paddingTop: 6, marginTop: 4 }}>
+                        <div style={{ fontSize: 11, color: '#888', marginBottom: 4, fontWeight: 700 }}>Supprimer un preset</div>
+                        {userPresets.map((p, i) => (
+                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
+                            <span style={{ flex: 1, fontSize: 11, color: '#aaa' }}>{p.name}</span>
+                            <button onClick={() => deleteUserPreset(i)} style={{
+                              background: 'none', border: 'none', color: '#888', cursor: 'pointer', fontSize: 13,
+                            }} title="Supprimer">&times;</button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
