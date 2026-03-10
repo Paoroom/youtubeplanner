@@ -1842,10 +1842,12 @@
       function duplicateBlock(blockId) {
         const block = blocks.find(b => b.id === blockId);
         if (!block) return;
+        const newId = 'b' + Date.now();
+        const clamped = clampNoOverlap(block.startTime + block.duration, block.duration, newId, block.track);
         const newBlock = {
           ...block,
-          id: 'b' + Date.now(),
-          startTime: block.startTime + block.duration,
+          id: newId,
+          startTime: clamped.startTime,
         };
         setBlocks(prev => [...prev, newBlock]);
         setSelectedBlockId(newBlock.id);
@@ -1973,6 +1975,28 @@
         return snapToGrid(time);
       }
 
+      // Prevent overlap: clamp startTime/duration so block doesn't overlap others on same track
+      function clampNoOverlap(startTime, duration, excludeId, trackName, currentBlocks) {
+        const sameTrack = (currentBlocks || blocks).filter(b => b.id !== excludeId && b.track === trackName);
+        let s = startTime;
+        let d = duration;
+        for (const b of sameTrack) {
+          const bEnd = b.startTime + b.duration;
+          // If our block overlaps another
+          if (s < bEnd && s + d > b.startTime) {
+            // Push out based on which side is closer
+            const pushRight = bEnd - s;
+            const pushLeft = (s + d) - b.startTime;
+            if (pushRight <= pushLeft) {
+              s = bEnd;
+            } else {
+              s = b.startTime - d;
+            }
+          }
+        }
+        return { startTime: Math.max(0, s), duration: d };
+      }
+
       function snapDuration(startTime, duration) {
         if (!snapEnabled) return duration;
         const endTime = startTime + duration;
@@ -2005,12 +2029,14 @@
           const rawTime = Math.max(0, x / pxPerSecond);
           const dur = measuresToSeconds(8, bpm);
           const startTime = snapToGrid(rawTime);
+          const blockId = 'b' + Date.now();
+          const clamped = clampNoOverlap(startTime, dur, blockId, element.name);
           const newBlock = {
-            id: 'b' + Date.now(),
+            id: blockId,
             element: element.name,
             color: element.color,
-            startTime,
-            duration: dur,
+            startTime: clamped.startTime,
+            duration: clamped.duration,
             track: element.name,
           };
           setBlocks(prev => [...prev, newBlock]);
@@ -2038,16 +2064,20 @@
             if (mode === 'move') {
               const rawTime = Math.max(0, origStart + dt);
               const snapped = snapToBlocks(rawTime, b.duration, blockId, b.track);
-              return { ...b, startTime: snapped };
+              const clamped = clampNoOverlap(snapped, b.duration, blockId, b.track, prev);
+              return { ...b, startTime: clamped.startTime };
             } else if (mode === 'resize-right') {
               const rawDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
-              return { ...b, duration: snapDuration(b.startTime, rawDur) };
+              const snappedDur = snapDuration(b.startTime, rawDur);
+              const clamped = clampNoOverlap(b.startTime, snappedDur, blockId, b.track, prev);
+              return { ...b, duration: clamped.duration };
             } else if (mode === 'resize-left') {
               const rawStart = Math.max(0, origStart + dt);
               const snappedStart = snapToGrid(rawStart);
               const newDur = origDur - (snappedStart - origStart);
               if (newDur < measuresToSeconds(1, bpm)) return b;
-              return { ...b, startTime: snappedStart, duration: newDur };
+              const clamped = clampNoOverlap(snappedStart, newDur, blockId, b.track, prev);
+              return { ...b, startTime: clamped.startTime, duration: clamped.duration };
             }
             return b;
           }));
