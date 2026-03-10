@@ -105,6 +105,19 @@ function getAccessAsync() {
 function setAccessAll(code) {
   const config = ACCESS_CODES[code.toUpperCase()];
   if (!config) return null;
+  // Block reuse of trial code if a trial was already used
+  if (config.type === 'trial') {
+    const current = getAccess();
+    if (current && current.type === 'trial') return null;
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) { const d = JSON.parse(raw); if (d.type === 'trial') return null; }
+    } catch {}
+    try {
+      const ck = getCookie(STORAGE_KEY);
+      if (ck) { const d = JSON.parse(ck); if (d.type === 'trial') return null; }
+    } catch {}
+  }
   const data = {
     type: config.type,
     label: config.label,
