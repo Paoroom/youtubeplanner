@@ -2393,12 +2393,12 @@
 
           // Add section markers as notes (C3 = 48) with text
           sectionMarkers.forEach(sec => {
-            track.addText(sec.name, sec.startTime);
             track.addNote({
               midi: 48,
               time: sec.startTime,
               duration: sec.duration,
               velocity: 0.8,
+              name: sec.name,
             });
           });
 
@@ -2408,12 +2408,12 @@
           blocks.forEach(block => {
             const elIdx = elementNames.indexOf(block.element);
             const noteNum = 60 + (elIdx % 12); // C4 and up
-            track.addText(block.element, block.startTime);
             track.addNote({
               midi: noteNum,
               time: block.startTime,
               duration: block.duration,
               velocity: 0.7,
+              name: block.element,
             });
           });
 
@@ -2472,12 +2472,12 @@
           track.name = 'Sections';
           track.channel = 0;
           sectionMarkers.forEach(sec => {
-            track.addText(sec.name, sec.startTime);
             track.addNote({
               midi: 48,
               time: sec.startTime,
               duration: sec.duration,
               velocity: 0.8,
+              name: sec.name,
             });
           });
           const arrayBuffer = midi.toArray();
