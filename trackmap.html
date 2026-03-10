@@ -1291,7 +1291,6 @@
       const animFrameRef = useRef(null);
       const [detectedBpm, setDetectedBpm] = useState(null);
       const [snapEnabled, setSnapEnabled] = useState(true);
-      const [audioStartTrim, setAudioStartTrim] = useState(0);
       const [userPresets, setUserPresets] = useState(() => {
         try { return JSON.parse(localStorage.getItem('trackmap-user-presets') || '[]'); } catch { return []; }
       });
@@ -1653,7 +1652,7 @@
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        const audioTime = Math.max(0, fromTime - audioOffset + audioStartTrim);
+        const audioTime = Math.max(0, fromTime - audioOffset);
         const audioEnd = audioBuffer.duration;
         if (audioTime >= audioEnd) return;
         source.start(0, audioTime);
@@ -2192,9 +2191,9 @@
         if (energyPoints.length < 2) return;
 
         const sorted = [...energyPoints].sort((a, b) => a.time - b.time);
-        const gradient = ctx.createLinearGradient(0, 0, w, 0);
-        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.5)');
-        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.5)');
+        const gradient = ctx.createLinearGradient(0, h, 0, 0);
+        gradient.addColorStop(0, 'rgba(0, 100, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(233, 30, 200, 0.5)');
 
         // Fill
         ctx.beginPath();
@@ -2218,9 +2217,9 @@
         ctx.fill();
 
         // Line
-        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-        lineGrad.addColorStop(0, '#00D9CE');
-        lineGrad.addColorStop(1, '#E91E8C');
+        const lineGrad = ctx.createLinearGradient(0, h, 0, 0);
+        lineGrad.addColorStop(0, '#0064FF');
+        lineGrad.addColorStop(1, '#E91EC8');
         ctx.beginPath();
         sorted.forEach((p, i) => {
           const x = p.time * pxPerSecond;
@@ -2436,7 +2435,7 @@
 
       // ── Save / Load localStorage ──
       function saveProject() {
-        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, audioStartTrim, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
         localStorage.setItem('trackmap-project', JSON.stringify(data));
         alert('Projet sauvegardé !');
       }
@@ -2455,7 +2454,6 @@
           setEnergyPoints(data.energyPoints || []);
           setNotes(data.notes || []);
           if (data.audioOffset) setAudioOffset(data.audioOffset);
-          if (data.audioStartTrim) setAudioStartTrim(data.audioStartTrim);
           if (data.elements && data.elements.length) setElements([...ELEMENTS, ...data.elements]);
         } catch (err) {}
       }
@@ -2575,16 +2573,6 @@
                         value={audioOffset}
                         onChange={e => setAudioOffset(parseFloat(e.target.value) || 0)}
                         title="Décalage en secondes"
-                      />
-                      <span style={{ fontSize: 10, color: '#666' }}>s</span>
-                      <span style={{ fontSize: 10, color: '#888' }}>Début:</span>
-                      <input
-                        className="audio-offset-input"
-                        type="number"
-                        step="0.01"
-                        value={audioStartTrim}
-                        onChange={e => setAudioStartTrim(parseFloat(e.target.value) || 0)}
-                        title="Couper le début du fichier audio (en secondes)"
                       />
                       <span style={{ fontSize: 10, color: '#666' }}>s</span>
                       {detectedBpm && <span className="detected-bpm" title="BPM détecté automatiquement">BPM détecté: {detectedBpm}</span>}
@@ -2853,11 +2841,16 @@
                     {energyPoints.map(p => {
                       const x = p.time * pxPerSecond;
                       const y = 70 - (p.value / 10) * 62;
+                      const t = p.value / 10;
+                      const r = Math.round(0 + t * 233);
+                      const g = Math.round(100 - t * 70);
+                      const b = Math.round(255 - t * 55);
+                      const ptColor = `rgb(${r},${g},${b})`;
                       return (
                         <React.Fragment key={p.id}>
                           <div
                             className="energy-point"
-                            style={{ left: x, top: y }}
+                            style={{ left: x, top: y, background: ptColor }}
                             onMouseDown={e => handleEnergyPointDrag(e, p.id)}
                             onMouseEnter={() => setHoveredEnergy(p.id)}
                             onMouseLeave={() => setHoveredEnergy(null)}
