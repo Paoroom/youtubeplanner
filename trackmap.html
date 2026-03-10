@@ -1291,7 +1291,6 @@
       const animFrameRef = useRef(null);
       const [detectedBpm, setDetectedBpm] = useState(null);
       const [snapEnabled, setSnapEnabled] = useState(true);
-      const [audioStartTrim, setAudioStartTrim] = useState(0);
       const [userPresets, setUserPresets] = useState(() => {
         try { return JSON.parse(localStorage.getItem('trackmap-user-presets') || '[]'); } catch { return []; }
       });
@@ -1653,7 +1652,7 @@
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        const audioTime = Math.max(0, fromTime - audioOffset + audioStartTrim);
+        const audioTime = Math.max(0, fromTime - audioOffset);
         const audioEnd = audioBuffer.duration;
         if (audioTime >= audioEnd) return;
         source.start(0, audioTime);
@@ -1843,10 +1842,12 @@
       function duplicateBlock(blockId) {
         const block = blocks.find(b => b.id === blockId);
         if (!block) return;
+        const newId = 'b' + Date.now();
+        const clamped = clampNoOverlap(block.startTime + block.duration, block.duration, newId, block.track);
         const newBlock = {
           ...block,
-          id: 'b' + Date.now(),
-          startTime: block.startTime + block.duration,
+          id: newId,
+          startTime: clamped.startTime,
         };
         setBlocks(prev => [...prev, newBlock]);
         setSelectedBlockId(newBlock.id);
@@ -1974,6 +1975,28 @@
         return snapToGrid(time);
       }
 
+      // Prevent overlap: clamp startTime/duration so block doesn't overlap others on same track
+      function clampNoOverlap(startTime, duration, excludeId, trackName, currentBlocks) {
+        const sameTrack = (currentBlocks || blocks).filter(b => b.id !== excludeId && b.track === trackName);
+        let s = startTime;
+        let d = duration;
+        for (const b of sameTrack) {
+          const bEnd = b.startTime + b.duration;
+          // If our block overlaps another
+          if (s < bEnd && s + d > b.startTime) {
+            // Push out based on which side is closer
+            const pushRight = bEnd - s;
+            const pushLeft = (s + d) - b.startTime;
+            if (pushRight <= pushLeft) {
+              s = bEnd;
+            } else {
+              s = b.startTime - d;
+            }
+          }
+        }
+        return { startTime: Math.max(0, s), duration: d };
+      }
+
       function snapDuration(startTime, duration) {
         if (!snapEnabled) return duration;
         const endTime = startTime + duration;
@@ -2006,12 +2029,14 @@
           const rawTime = Math.max(0, x / pxPerSecond);
           const dur = measuresToSeconds(8, bpm);
           const startTime = snapToGrid(rawTime);
+          const blockId = 'b' + Date.now();
+          const clamped = clampNoOverlap(startTime, dur, blockId, element.name);
           const newBlock = {
-            id: 'b' + Date.now(),
+            id: blockId,
             element: element.name,
             color: element.color,
-            startTime,
-            duration: dur,
+            startTime: clamped.startTime,
+            duration: clamped.duration,
             track: element.name,
           };
           setBlocks(prev => [...prev, newBlock]);
@@ -2039,16 +2064,20 @@
             if (mode === 'move') {
               const rawTime = Math.max(0, origStart + dt);
               const snapped = snapToBlocks(rawTime, b.duration, blockId, b.track);
-              return { ...b, startTime: snapped };
+              const clamped = clampNoOverlap(snapped, b.duration, blockId, b.track, prev);
+              return { ...b, startTime: clamped.startTime };
             } else if (mode === 'resize-right') {
               const rawDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
-              return { ...b, duration: snapDuration(b.startTime, rawDur) };
+              const snappedDur = snapDuration(b.startTime, rawDur);
+              const clamped = clampNoOverlap(b.startTime, snappedDur, blockId, b.track, prev);
+              return { ...b, duration: clamped.duration };
             } else if (mode === 'resize-left') {
               const rawStart = Math.max(0, origStart + dt);
               const snappedStart = snapToGrid(rawStart);
               const newDur = origDur - (snappedStart - origStart);
               if (newDur < measuresToSeconds(1, bpm)) return b;
-              return { ...b, startTime: snappedStart, duration: newDur };
+              const clamped = clampNoOverlap(snappedStart, newDur, blockId, b.track, prev);
+              return { ...b, startTime: clamped.startTime, duration: clamped.duration };
             }
             return b;
           }));
@@ -2192,9 +2221,9 @@
         if (energyPoints.length < 2) return;
 
         const sorted = [...energyPoints].sort((a, b) => a.time - b.time);
-        const gradient = ctx.createLinearGradient(0, 0, w, 0);
-        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.5)');
-        gradient.addColorStop(1, 'rgba(233, 30, 140, 0.5)');
+        const gradient = ctx.createLinearGradient(0, h, 0, 0);
+        gradient.addColorStop(0, 'rgba(0, 100, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(233, 30, 200, 0.5)');
 
         // Fill
         ctx.beginPath();
@@ -2218,9 +2247,9 @@
         ctx.fill();
 
         // Line
-        const lineGrad = ctx.createLinearGradient(0, 0, w, 0);
-        lineGrad.addColorStop(0, '#00D9CE');
-        lineGrad.addColorStop(1, '#E91E8C');
+        const lineGrad = ctx.createLinearGradient(0, h, 0, 0);
+        lineGrad.addColorStop(0, '#0064FF');
+        lineGrad.addColorStop(1, '#E91EC8');
         ctx.beginPath();
         sorted.forEach((p, i) => {
           const x = p.time * pxPerSecond;
@@ -2308,15 +2337,17 @@
         link.click();
       }
 
-      function addSectionTracksToMidi(midi) {
-        // One track per section, named with the section name
+      function addSectionTrackToMidi(midi) {
+        // Single track with all sections as notes + text markers
+        const track = midi.addTrack();
+        track.name = 'Structure';
+        track.channel = 0;
         sectionMarkers.forEach((sec, i) => {
-          const track = midi.addTrack();
-          track.name = sec.name;
-          track.channel = Math.min(i, 15);
-          // Single note spanning the section duration
+          // Text marker with section name
+          track.addText(sec.name, sec.startTime);
+          // Note for each section block
           track.addNote({
-            midi: 60 + (i % 12),
+            midi: 60,
             time: sec.startTime,
             duration: sec.duration,
             velocity: 0.8,
@@ -2330,14 +2361,14 @@
           midi.header.setTempo(bpm);
 
           // Section tracks (one per section with name)
-          addSectionTracksToMidi(midi);
+          addSectionTrackToMidi(midi);
 
           // Instrument tracks
           const trackElements = [...new Set(blocks.map(b => b.element))];
           trackElements.forEach((elName, idx) => {
             const track = midi.addTrack();
             track.name = elName;
-            track.channel = Math.min(sectionMarkers.length + idx, 15);
+            track.channel = Math.min(1 + idx, 15);
             const elBlocks = blocks.filter(b => b.element === elName);
             elBlocks.forEach(block => {
               const noteNum = 36 + (idx % 12);
@@ -2402,7 +2433,7 @@
           const midi = new Midi();
           midi.header.setTempo(bpm);
           // One track per section with section name
-          addSectionTracksToMidi(midi);
+          addSectionTrackToMidi(midi);
           const arrayBuffer = midi.toArray();
           const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
           const link = document.createElement('a');
@@ -2434,7 +2465,7 @@
 
       // ── Save / Load localStorage ──
       function saveProject() {
-        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, audioStartTrim, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
         localStorage.setItem('trackmap-project', JSON.stringify(data));
         alert('Projet sauvegardé !');
       }
@@ -2453,7 +2484,6 @@
           setEnergyPoints(data.energyPoints || []);
           setNotes(data.notes || []);
           if (data.audioOffset) setAudioOffset(data.audioOffset);
-          if (data.audioStartTrim) setAudioStartTrim(data.audioStartTrim);
           if (data.elements && data.elements.length) setElements([...ELEMENTS, ...data.elements]);
         } catch (err) {}
       }
@@ -2573,16 +2603,6 @@
                         value={audioOffset}
                         onChange={e => setAudioOffset(parseFloat(e.target.value) || 0)}
                         title="Décalage en secondes"
-                      />
-                      <span style={{ fontSize: 10, color: '#666' }}>s</span>
-                      <span style={{ fontSize: 10, color: '#888' }}>Début:</span>
-                      <input
-                        className="audio-offset-input"
-                        type="number"
-                        step="0.01"
-                        value={audioStartTrim}
-                        onChange={e => setAudioStartTrim(parseFloat(e.target.value) || 0)}
-                        title="Couper le début du fichier audio (en secondes)"
                       />
                       <span style={{ fontSize: 10, color: '#666' }}>s</span>
                       {detectedBpm && <span className="detected-bpm" title="BPM détecté automatiquement">BPM détecté: {detectedBpm}</span>}
@@ -2851,11 +2871,16 @@
                     {energyPoints.map(p => {
                       const x = p.time * pxPerSecond;
                       const y = 70 - (p.value / 10) * 62;
+                      const t = p.value / 10;
+                      const r = Math.round(0 + t * 233);
+                      const g = Math.round(100 - t * 70);
+                      const b = Math.round(255 - t * 55);
+                      const ptColor = `rgb(${r},${g},${b})`;
                       return (
                         <React.Fragment key={p.id}>
                           <div
                             className="energy-point"
-                            style={{ left: x, top: y }}
+                            style={{ left: x, top: y, background: ptColor }}
                             onMouseDown={e => handleEnergyPointDrag(e, p.id)}
                             onMouseEnter={() => setHoveredEnergy(p.id)}
                             onMouseLeave={() => setHoveredEnergy(null)}
