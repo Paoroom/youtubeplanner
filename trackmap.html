@@ -1975,26 +1975,69 @@
         return snapToGrid(time);
       }
 
-      // Prevent overlap: clamp startTime/duration so block doesn't overlap others on same track
+      // Prevent overlap: clamp startTime so block doesn't overlap others on same track
       function clampNoOverlap(startTime, duration, excludeId, trackName, currentBlocks) {
-        const sameTrack = (currentBlocks || blocks).filter(b => b.id !== excludeId && b.track === trackName);
+        const others = (currentBlocks || blocks)
+          .filter(b => b.id !== excludeId && b.track === trackName)
+          .sort((a, b) => a.startTime - b.startTime);
+        if (others.length === 0) return { startTime: Math.max(0, startTime), duration };
+
         let s = startTime;
-        let d = duration;
-        for (const b of sameTrack) {
+        const d = duration;
+
+        // Find the gap where the block center falls
+        const center = s + d / 2;
+
+        // Build list of occupied intervals
+        // Find nearest non-overlapping position
+        function hasOverlap(st) {
+          for (const b of others) {
+            if (st < b.startTime + b.duration && st + d > b.startTime) return true;
+          }
+          return false;
+        }
+
+        if (!hasOverlap(s)) return { startTime: Math.max(0, s), duration: d };
+
+        // Try snapping to edges of nearby blocks (closest first)
+        let candidates = [];
+        for (const b of others) {
+          candidates.push(b.startTime + b.duration);       // right after block
+          candidates.push(b.startTime - d);                 // just before block
+        }
+        candidates.push(0); // start of timeline
+        candidates = candidates.filter(c => c >= 0 && !hasOverlap(c));
+
+        if (candidates.length === 0) {
+          // No valid position found, keep original (shouldn't happen normally)
+          return { startTime: Math.max(0, s), duration: d };
+        }
+
+        // Pick candidate closest to original position
+        candidates.sort((a, b) => Math.abs(a - s) - Math.abs(b - s));
+        return { startTime: Math.max(0, candidates[0]), duration: d };
+      }
+
+      // Clamp resize duration to not overlap neighbours
+      function clampResizeNoOverlap(startTime, duration, excludeId, trackName, currentBlocks) {
+        const others = (currentBlocks || blocks)
+          .filter(b => b.id !== excludeId && b.track === trackName)
+          .sort((a, b) => a.startTime - b.startTime);
+        let maxEnd = Infinity;
+        let minStart = 0;
+        for (const b of others) {
           const bEnd = b.startTime + b.duration;
-          // If our block overlaps another
-          if (s < bEnd && s + d > b.startTime) {
-            // Push out based on which side is closer
-            const pushRight = bEnd - s;
-            const pushLeft = (s + d) - b.startTime;
-            if (pushRight <= pushLeft) {
-              s = bEnd;
-            } else {
-              s = b.startTime - d;
-            }
+          // Block to the right: limits our end
+          if (b.startTime >= startTime) {
+            maxEnd = Math.min(maxEnd, b.startTime);
+          }
+          // Block to the left: limits our start
+          if (bEnd <= startTime + duration) {
+            minStart = Math.max(minStart, bEnd);
           }
         }
-        return { startTime: Math.max(0, s), duration: d };
+        const clampedDur = Math.min(duration, maxEnd - startTime);
+        return { startTime: Math.max(minStart, startTime), duration: Math.max(measuresToSeconds(1, bpm), clampedDur) };
       }
 
       function snapDuration(startTime, duration) {
@@ -2069,14 +2112,14 @@
             } else if (mode === 'resize-right') {
               const rawDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
               const snappedDur = snapDuration(b.startTime, rawDur);
-              const clamped = clampNoOverlap(b.startTime, snappedDur, blockId, b.track, prev);
+              const clamped = clampResizeNoOverlap(b.startTime, snappedDur, blockId, b.track, prev);
               return { ...b, duration: clamped.duration };
             } else if (mode === 'resize-left') {
               const rawStart = Math.max(0, origStart + dt);
               const snappedStart = snapToGrid(rawStart);
               const newDur = origDur - (snappedStart - origStart);
               if (newDur < measuresToSeconds(1, bpm)) return b;
-              const clamped = clampNoOverlap(snappedStart, newDur, blockId, b.track, prev);
+              const clamped = clampResizeNoOverlap(snappedStart, newDur, blockId, b.track, prev);
               return { ...b, startTime: clamped.startTime, duration: clamped.duration };
             }
             return b;
@@ -2222,7 +2265,7 @@
 
         const sorted = [...energyPoints].sort((a, b) => a.time - b.time);
         const gradient = ctx.createLinearGradient(0, h, 0, 0);
-        gradient.addColorStop(0, 'rgba(0, 100, 255, 0.5)');
+        gradient.addColorStop(0, 'rgba(0, 217, 206, 0.5)');
         gradient.addColorStop(1, 'rgba(233, 30, 200, 0.5)');
 
         // Fill
@@ -2248,7 +2291,7 @@
 
         // Line
         const lineGrad = ctx.createLinearGradient(0, h, 0, 0);
-        lineGrad.addColorStop(0, '#0064FF');
+        lineGrad.addColorStop(0, '#00D9CE');
         lineGrad.addColorStop(1, '#E91EC8');
         ctx.beginPath();
         sorted.forEach((p, i) => {
@@ -2337,47 +2380,39 @@
         link.click();
       }
 
-      function addSectionTrackToMidi(midi) {
-        // Single track with all sections as notes + text markers
-        const track = midi.addTrack();
-        track.name = 'Structure';
-        track.channel = 0;
-        sectionMarkers.forEach((sec, i) => {
-          // Text marker with section name
-          track.addText(sec.name, sec.startTime);
-          // Note for each section block
-          track.addNote({
-            midi: 60,
-            time: sec.startTime,
-            duration: sec.duration,
-            velocity: 0.8,
-          });
-        });
-      }
-
       function exportMIDI() {
         try {
           const midi = new Midi();
           midi.header.setTempo(bpm);
 
-          // Section tracks (one per section with name)
-          addSectionTrackToMidi(midi);
+          // Single track with ALL blocks (sections + elements) as notes with text names
+          const track = midi.addTrack();
+          track.name = 'TrackMap';
+          track.channel = 0;
 
-          // Instrument tracks
-          const trackElements = [...new Set(blocks.map(b => b.element))];
-          trackElements.forEach((elName, idx) => {
-            const track = midi.addTrack();
-            track.name = elName;
-            track.channel = Math.min(1 + idx, 15);
-            const elBlocks = blocks.filter(b => b.element === elName);
-            elBlocks.forEach(block => {
-              const noteNum = 36 + (idx % 12);
-              track.addNote({
-                midi: noteNum,
-                time: block.startTime,
-                duration: block.duration,
-                velocity: 0.8,
-              });
+          // Add section markers as notes (C3 = 48) with text
+          sectionMarkers.forEach(sec => {
+            track.addText(sec.name, sec.startTime);
+            track.addNote({
+              midi: 48,
+              time: sec.startTime,
+              duration: sec.duration,
+              velocity: 0.8,
+            });
+          });
+
+          // Add all element blocks as notes with text names
+          // Each element type gets a different note number for visual distinction
+          const elementNames = [...new Set(blocks.map(b => b.element))];
+          blocks.forEach(block => {
+            const elIdx = elementNames.indexOf(block.element);
+            const noteNum = 60 + (elIdx % 12); // C4 and up
+            track.addText(block.element, block.startTime);
+            track.addNote({
+              midi: noteNum,
+              time: block.startTime,
+              duration: block.duration,
+              velocity: 0.7,
             });
           });
 
@@ -2432,8 +2467,18 @@
         try {
           const midi = new Midi();
           midi.header.setTempo(bpm);
-          // One track per section with section name
-          addSectionTrackToMidi(midi);
+          const track = midi.addTrack();
+          track.name = 'Sections';
+          track.channel = 0;
+          sectionMarkers.forEach(sec => {
+            track.addText(sec.name, sec.startTime);
+            track.addNote({
+              midi: 48,
+              time: sec.startTime,
+              duration: sec.duration,
+              velocity: 0.8,
+            });
+          });
           const arrayBuffer = midi.toArray();
           const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
           const link = document.createElement('a');
