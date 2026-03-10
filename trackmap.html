@@ -1290,6 +1290,8 @@
       const playOffsetRef = useRef(0);
       const animFrameRef = useRef(null);
       const [detectedBpm, setDetectedBpm] = useState(null);
+      const [snapEnabled, setSnapEnabled] = useState(true);
+      const [audioStartTrim, setAudioStartTrim] = useState(0);
       const [userPresets, setUserPresets] = useState(() => {
         try { return JSON.parse(localStorage.getItem('trackmap-user-presets') || '[]'); } catch { return []; }
       });
@@ -1651,7 +1653,7 @@
         const source = ctx.createBufferSource();
         source.buffer = audioBuffer;
         source.connect(ctx.destination);
-        const audioTime = Math.max(0, fromTime - audioOffset);
+        const audioTime = Math.max(0, fromTime - audioOffset + audioStartTrim);
         const audioEnd = audioBuffer.duration;
         if (audioTime >= audioEnd) return;
         source.start(0, audioTime);
@@ -1932,6 +1934,53 @@
       }, [totalDuration, bpm]);
 
       // ── Drag from palette ──
+      // ── Snap helpers ──
+      function snapToGrid(time) {
+        if (!snapEnabled) return time;
+        const measureDur = measuresToSeconds(1, bpm);
+        return Math.round(time / measureDur) * measureDur;
+      }
+
+      function snapToBlocks(time, duration, excludeId, trackName) {
+        if (!snapEnabled) return time;
+        const SNAP_THRESHOLD = measuresToSeconds(0.5, bpm);
+        let best = time;
+        let bestDist = SNAP_THRESHOLD;
+        // Snap to other blocks on same track
+        blocks.forEach(b => {
+          if (b.id === excludeId || b.track !== trackName) return;
+          const bEnd = b.startTime + b.duration;
+          // My start → their end
+          const d1 = Math.abs(time - bEnd);
+          if (d1 < bestDist) { bestDist = d1; best = bEnd; }
+          // My end → their start
+          const d2 = Math.abs((time + duration) - b.startTime);
+          if (d2 < bestDist) { bestDist = d2; best = b.startTime - duration; }
+        });
+        // Also snap to section boundaries
+        sectionMarkers.forEach(s => {
+          const sEnd = s.startTime + s.duration;
+          const d1 = Math.abs(time - s.startTime);
+          const d2 = Math.abs(time - sEnd);
+          const d3 = Math.abs((time + duration) - s.startTime);
+          const d4 = Math.abs((time + duration) - sEnd);
+          if (d1 < bestDist) { bestDist = d1; best = s.startTime; }
+          if (d2 < bestDist) { bestDist = d2; best = sEnd; }
+          if (d3 < bestDist) { bestDist = d3; best = s.startTime - duration; }
+          if (d4 < bestDist) { bestDist = d4; best = sEnd - duration; }
+        });
+        // If block snap won, use it; otherwise grid snap
+        if (best !== time) return Math.max(0, best);
+        return snapToGrid(time);
+      }
+
+      function snapDuration(startTime, duration) {
+        if (!snapEnabled) return duration;
+        const endTime = startTime + duration;
+        const snappedEnd = snapToGrid(endTime);
+        return Math.max(measuresToSeconds(1, bpm), snappedEnd - startTime);
+      }
+
       function handlePaletteDragStart(e, element) {
         e.dataTransfer.setData('element', JSON.stringify(element));
         e.dataTransfer.effectAllowed = 'copy';
@@ -1954,8 +2003,9 @@
           if (!element) return;
           const rect = timelineRef.current.getBoundingClientRect();
           const x = e.clientX - rect.left + timelineRef.current.scrollLeft - 120;
-          const startTime = Math.max(0, x / pxPerSecond);
+          const rawTime = Math.max(0, x / pxPerSecond);
           const dur = measuresToSeconds(8, bpm);
+          const startTime = snapToGrid(rawTime);
           const newBlock = {
             id: 'b' + Date.now(),
             element: element.name,
@@ -1987,14 +2037,18 @@
           setBlocks(prev => prev.map(b => {
             if (b.id !== blockId) return b;
             if (mode === 'move') {
-              return { ...b, startTime: Math.max(0, origStart + dt) };
+              const rawTime = Math.max(0, origStart + dt);
+              const snapped = snapToBlocks(rawTime, b.duration, blockId, b.track);
+              return { ...b, startTime: snapped };
             } else if (mode === 'resize-right') {
-              return { ...b, duration: Math.max(measuresToSeconds(1, bpm), origDur + dt) };
+              const rawDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
+              return { ...b, duration: snapDuration(b.startTime, rawDur) };
             } else if (mode === 'resize-left') {
-              const newStart = Math.max(0, origStart + dt);
-              const newDur = origDur - (newStart - origStart);
+              const rawStart = Math.max(0, origStart + dt);
+              const snappedStart = snapToGrid(rawStart);
+              const newDur = origDur - (snappedStart - origStart);
               if (newDur < measuresToSeconds(1, bpm)) return b;
-              return { ...b, startTime: newStart, duration: newDur };
+              return { ...b, startTime: snappedStart, duration: newDur };
             }
             return b;
           }));
@@ -2092,12 +2146,12 @@
           let newDur = origDur;
 
           if (mode === 'move') {
-            newStart = Math.max(0, origStart + dt);
+            newStart = snapToGrid(Math.max(0, origStart + dt));
             newDur = origDur;
           } else if (mode === 'resize-right') {
-            newDur = Math.max(measuresToSeconds(1, bpm), origDur + dt);
+            newDur = snapDuration(origStart, Math.max(measuresToSeconds(1, bpm), origDur + dt));
           } else if (mode === 'resize-left') {
-            newStart = Math.max(0, origStart + dt);
+            newStart = snapToGrid(Math.max(0, origStart + dt));
             newDur = origDur - (newStart - origStart);
             if (newDur < measuresToSeconds(1, bpm)) return;
           }
@@ -2376,7 +2430,7 @@
 
       // ── Save / Load localStorage ──
       function saveProject() {
-        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
+        const data = { style, bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset, audioStartTrim, elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)) };
         localStorage.setItem('trackmap-project', JSON.stringify(data));
         alert('Projet sauvegardé !');
       }
@@ -2395,6 +2449,7 @@
           setEnergyPoints(data.energyPoints || []);
           setNotes(data.notes || []);
           if (data.audioOffset) setAudioOffset(data.audioOffset);
+          if (data.audioStartTrim) setAudioStartTrim(data.audioStartTrim);
           if (data.elements && data.elements.length) setElements([...ELEMENTS, ...data.elements]);
         } catch (err) {}
       }
@@ -2475,6 +2530,23 @@
                 </div>
               </div>
               <div>
+                <div className="label">Magnétisme</div>
+                <button
+                  className="btn"
+                  onClick={() => setSnapEnabled(prev => !prev)}
+                  style={{
+                    background: snapEnabled ? '#00D9CE22' : '#333',
+                    border: `1px solid ${snapEnabled ? '#00D9CE' : '#555'}`,
+                    color: snapEnabled ? '#00D9CE' : '#888',
+                    borderRadius: 10, padding: '6px 12px', fontSize: 12, cursor: 'pointer',
+                    fontWeight: 600, transition: 'all 0.2s',
+                  }}
+                  title={snapEnabled ? 'Magnétisme activé (mesures)' : 'Magnétisme désactivé'}
+                >
+                  {snapEnabled ? '\uD83E\uDDF2 ON' : '\uD83E\uDDF2 OFF'}
+                </button>
+              </div>
+              <div>
                 <div className="label">Audio</div>
                 <div className="audio-controls">
                   <input
@@ -2497,6 +2569,16 @@
                         value={audioOffset}
                         onChange={e => setAudioOffset(parseFloat(e.target.value) || 0)}
                         title="Décalage en secondes"
+                      />
+                      <span style={{ fontSize: 10, color: '#666' }}>s</span>
+                      <span style={{ fontSize: 10, color: '#888' }}>Début:</span>
+                      <input
+                        className="audio-offset-input"
+                        type="number"
+                        step="0.01"
+                        value={audioStartTrim}
+                        onChange={e => setAudioStartTrim(parseFloat(e.target.value) || 0)}
+                        title="Couper le début du fichier audio (en secondes)"
                       />
                       <span style={{ fontSize: 10, color: '#666' }}>s</span>
                       {detectedBpm && <span className="detected-bpm" title="BPM détecté automatiquement">BPM détecté: {detectedBpm}</span>}
