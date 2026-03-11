@@ -2386,32 +2386,33 @@
           const midi = new Midi();
           midi.header.setTempo(bpm);
 
-          // Single track with ALL blocks (sections + elements) as notes with text names
-          const track = midi.addTrack();
-          track.name = 'TrackMap';
-          track.channel = 0;
-
-          // Add section markers as notes (C3 = 48) with text
-          sectionMarkers.forEach(sec => {
-            track.addNote({
-              midi: 48,
-              time: sec.startTime,
-              duration: sec.duration,
-              velocity: 0.8,
-            });
-          });
-
-          // Add all element blocks as notes with text names
-          // Each element type gets a different note number for visual distinction
           const elementNames = [...new Set(blocks.map(b => b.element))];
-          blocks.forEach(block => {
-            const elIdx = elementNames.indexOf(block.element);
-            const noteNum = 60 + (elIdx % 12); // C4 and up
-            track.addNote({
-              midi: noteNum,
-              time: block.startTime,
-              duration: block.duration,
-              velocity: 0.7,
+
+          // One track per section, named after the section
+          sectionMarkers.forEach((sec, si) => {
+            const track = midi.addTrack();
+            track.name = sec.name;
+            track.channel = Math.min(si, 15);
+
+            // Find blocks that overlap this section
+            const secEnd = sec.startTime + sec.duration;
+            const sectionBlocks = blocks.filter(b => {
+              const bEnd = b.startTime + b.duration;
+              return b.startTime < secEnd && bEnd > sec.startTime;
+            });
+
+            sectionBlocks.forEach(block => {
+              const elIdx = elementNames.indexOf(block.element);
+              const noteNum = 48 + (elIdx % 24);
+              // Clip note to section boundaries
+              const noteStart = Math.max(block.startTime, sec.startTime);
+              const noteEnd = Math.min(block.startTime + block.duration, secEnd);
+              track.addNote({
+                midi: noteNum,
+                time: noteStart,
+                duration: noteEnd - noteStart,
+                velocity: 0.8,
+              });
             });
           });
 
@@ -2466,10 +2467,12 @@
         try {
           const midi = new Midi();
           midi.header.setTempo(bpm);
-          const track = midi.addTrack();
-          track.name = 'Sections';
-          track.channel = 0;
-          sectionMarkers.forEach(sec => {
+
+          // One track per section, each named after the section
+          sectionMarkers.forEach((sec, si) => {
+            const track = midi.addTrack();
+            track.name = sec.name;
+            track.channel = Math.min(si, 15);
             track.addNote({
               midi: 48,
               time: sec.startTime,
@@ -2477,6 +2480,7 @@
               velocity: 0.8,
             });
           });
+
           const arrayBuffer = midi.toArray();
           const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
           const link = document.createElement('a');
