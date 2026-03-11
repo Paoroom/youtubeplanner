@@ -9,6 +9,7 @@
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
   <script src="https://unpkg.com/@tonejs/midi@2.0.28/build/Midi.js"></script>
+  <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body {
@@ -2381,34 +2382,48 @@
         link.click();
       }
 
-      function exportMIDI() {
-        try {
-          const midi = new Midi();
-          midi.header.setTempo(bpm);
+      // Helper: create a .mid blob for a single block (one clip)
+      function makeBlockMidi(blockStartTime, blockDuration, noteNum) {
+        const midi = new Midi();
+        midi.header.setTempo(bpm);
+        const track = midi.addTrack();
+        track.channel = 0;
+        track.addNote({
+          midi: noteNum,
+          time: blockStartTime,
+          duration: blockDuration,
+          velocity: 0.8,
+        });
+        return new Uint8Array(midi.toArray());
+      }
 
-          // Create a track per element (like the original working version)
+      async function exportMIDI() {
+        try {
+          const zip = new JSZip();
+
+          // Sections folder — one .mid per section
+          sectionMarkers.forEach((sec, i) => {
+            const idx = String(i + 1).padStart(2, '0');
+            const data = makeBlockMidi(sec.startTime, sec.duration, 60);
+            zip.file(`Sections/${idx}-${sec.name}.mid`, data);
+          });
+
+          // Elements folder — one subfolder per element, one .mid per block
           const trackElements = [...new Set(blocks.map(b => b.element))];
-          trackElements.forEach((elName, idx) => {
-            const track = midi.addTrack();
-            track.name = elName;
-            track.channel = Math.min(idx, 15);
+          trackElements.forEach((elName, elIdx) => {
             const elBlocks = blocks.filter(b => b.element === elName);
-            elBlocks.forEach(block => {
-              const noteNum = 48 + (idx % 12);
-              track.addNote({
-                midi: noteNum,
-                time: block.startTime,
-                duration: block.duration,
-                velocity: 0.8,
-              });
+            const noteNum = 48 + (elIdx % 12);
+            elBlocks.forEach((block, bi) => {
+              const idx = String(bi + 1).padStart(2, '0');
+              const data = makeBlockMidi(block.startTime, block.duration, noteNum);
+              zip.file(`${elName}/${idx}-${elName}.mid`, data);
             });
           });
 
-          const arrayBuffer = midi.toArray();
-          const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
+          const content = await zip.generateAsync({ type: 'blob' });
           const link = document.createElement('a');
-          link.download = `trackmap-${style}.mid`;
-          link.href = URL.createObjectURL(blob);
+          link.download = `trackmap-${style}.zip`;
+          link.href = URL.createObjectURL(content);
           link.click();
         } catch(err) {
           alert('Erreur export MIDI : ' + err.message);
@@ -2450,30 +2465,20 @@
         localStorage.setItem('trackmap-user-presets', JSON.stringify(updated));
       }
 
-      // ── MIDI Export (sections only) — one .mid file per section ──
-      function exportMIDISections() {
+      // ── MIDI Export (sections only) — ZIP with one .mid per section ──
+      async function exportMIDISections() {
         try {
+          const zip = new JSZip();
           sectionMarkers.forEach((sec, i) => {
-            const midi = new Midi();
-            midi.header.setTempo(bpm);
-            const track = midi.addTrack();
-            track.name = sec.name;
-            track.channel = 0;
-            // Note at the section's position with its exact duration
-            track.addNote({
-              midi: 60,
-              time: sec.startTime,
-              duration: sec.duration,
-              velocity: 0.8,
-            });
-            const arrayBuffer = midi.toArray();
-            const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
-            const link = document.createElement('a');
             const idx = String(i + 1).padStart(2, '0');
-            link.download = `${idx}-${sec.name}.mid`;
-            link.href = URL.createObjectURL(blob);
-            link.click();
+            const data = makeBlockMidi(sec.startTime, sec.duration, 60);
+            zip.file(`${idx}-${sec.name}.mid`, data);
           });
+          const content = await zip.generateAsync({ type: 'blob' });
+          const link = document.createElement('a');
+          link.download = `trackmap-sections-${style}.zip`;
+          link.href = URL.createObjectURL(content);
+          link.click();
         } catch(err) {
           alert('Erreur export MIDI : ' + err.message);
         }
