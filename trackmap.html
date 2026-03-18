@@ -2344,7 +2344,8 @@
       }
 
       function exportTXT() {
-        let txt = `# Arrangement - ${STYLE_OPTIONS.find(s => s.value === style)?.label || style}\n`;
+        const styleLabelTxt = style.startsWith('user-preset-') ? (userPresets[parseInt(style.replace('user-preset-', ''))]?.name || style) : (STYLE_OPTIONS.find(s => s.value === style)?.label || style);
+        let txt = `# Arrangement - ${styleLabelTxt}\n`;
         txt += `BPM : ${bpm} | Durée : ${secondsToTimeStr(totalDuration)}\n\n`;
 
         sectionMarkers.forEach(sec => {
@@ -2420,6 +2421,7 @@
         if (!presetName.trim()) return;
         const preset = {
           name: presetName.trim(),
+          style,
           bpm, blocks, tracks, totalDuration, sectionMarkers, energyPoints, notes, audioOffset: parseFloat(audioOffset) || 0,
           elements: elements.filter(e => !ELEMENTS.find(d => d.name === e.name)),
           savedAt: Date.now(),
@@ -2431,7 +2433,9 @@
         setShowPresetMenu(false);
       }
 
-      function loadUserPreset(preset) {
+      function loadUserPreset(preset, selectValue) {
+        if (selectValue) setStyle(selectValue);
+        else if (preset.style) setStyle(preset.style);
         setBpm(preset.bpm);
         setBlocks(preset.blocks);
         setTracks(preset.tracks);
@@ -2538,7 +2542,7 @@
                   if (v.startsWith('user-preset-')) {
                     const idx = parseInt(v.replace('user-preset-', ''));
                     const preset = userPresets[idx];
-                    if (preset) loadUserPreset(preset);
+                    if (preset) loadUserPreset(preset, v);
                   } else {
                     handleStyleChange(e);
                   }
