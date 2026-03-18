@@ -2479,7 +2479,7 @@
           const arrayBuffer = midi.toArray();
           const blob = new Blob([arrayBuffer], { type: 'audio/midi' });
           const link = document.createElement('a');
-          link.download = `trackmap-sections-${style}.mid`;
+          link.download = `trackmap-sections-${getExportName()}.mid`;
           link.href = URL.createObjectURL(blob);
           link.click();
         } catch(err) {
