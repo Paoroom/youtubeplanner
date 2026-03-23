@@ -161,13 +161,9 @@
   .gate-btn { width:100%; padding:12px; border:none; border-radius:8px; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; margin-bottom:8px; }
   .gate-btn-primary { background:var(--accent); color:#000; }
   .gate-btn-primary:hover { background:#00f0e4; }
-  .gate-btn-trial { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
-  .gate-btn-trial:hover { border-color:var(--accent); background:var(--surface3); }
   .gate-error { color:var(--red); font-size:11px; min-height:16px; margin-bottom:8px; }
   .gate-status { font-size:10px; color:var(--text-dim); margin-top:12px; }
   .gate-status b { color:var(--accent); }
-  .gate-divider { display:flex; align-items:center; gap:12px; margin:16px 0; font-size:10px; color:var(--text-dim); }
-  .gate-divider::before,.gate-divider::after { content:''; flex:1; height:1px; background:var(--border); }
 
   /* Trial banner */
   .trial-banner { position:fixed; top:0; left:0; right:0; z-index:9998; background:linear-gradient(90deg,var(--accent2),var(--accent3)); color:#fff; font-size:11px; font-weight:600; text-align:center; padding:4px 12px; }
@@ -194,8 +190,6 @@
     <input type="text" class="gate-input" id="gateCode" placeholder="Entrez votre code d'acces" maxlength="20" autocomplete="off" spellcheck="false">
     <div class="gate-error" id="gateError"></div>
     <button class="gate-btn gate-btn-primary" id="gateActivate">Activer</button>
-    <div class="gate-divider">ou</div>
-    <button class="gate-btn gate-btn-trial" id="gateTrial">Essai gratuit 7 jours</button>
     <div class="gate-status" id="gateStatus"></div>
   </div>
 </div>
@@ -1138,36 +1132,9 @@ refreshElementList();
 const STORAGE_KEY = 'mixviz3d_license';
 const $g = id => document.getElementById(id);
 
-// MIP codes = unlimited access (hashed for basic obfuscation)
-// Real codes: MIP-MIXVIZ-2024, MIP-STUDIO-PRO, MIP-TEACHER-EDU
-const MIP_HASHES = [
-  hashCode('MIP-MIXVIZ-2024'),
-  hashCode('MIP-STUDIO-PRO'),
-  hashCode('MIP-TEACHER-EDU'),
-  hashCode('MIP-AUDIO-MASTER'),
-  hashCode('MIP-PROD-MUSIC'),
-];
-
-// Trial codes = 7 days (any code starting with "TRIAL-" or "ESSAI-")
-function isTrialCode(code) {
-  const upper = code.toUpperCase().trim();
-  return upper.startsWith('TRIAL-') || upper.startsWith('ESSAI-');
-}
-
-function isMIPCode(code) {
-  const h = hashCode(code.toUpperCase().trim());
-  return MIP_HASHES.includes(h);
-}
-
-function hashCode(str) {
-  let hash = 0;
-  for(let i = 0; i < str.length; i++) {
-    const c = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + c;
-    hash |= 0;
-  }
-  return hash;
-}
+// 1 code illimite, 1 code 7 jours
+const CODE_UNLIMITED = 'MIXVIZ-PRO-2024';
+const CODE_TRIAL = 'MIXVIZ-DEMO';
 
 function getLicense() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; }
@@ -1183,8 +1150,8 @@ function checkAccess() {
   const lic = getLicense();
   if(!lic) return { granted: false };
 
-  if(lic.type === 'mip') {
-    return { granted: true, type: 'mip' };
+  if(lic.type === 'unlimited') {
+    return { granted: true, type: 'unlimited' };
   }
 
   if(lic.type === 'trial') {
@@ -1206,77 +1173,60 @@ function initGate() {
 
   if(access.granted) {
     $g('gate').classList.add('hidden');
-
     if(access.type === 'trial') {
       const banner = $g('trialBanner');
       banner.classList.remove('hidden');
       $g('trialBannerText').textContent =
-        `Essai gratuit : ${access.daysLeft} jour${access.daysLeft>1?'s':''} restant${access.daysLeft>1?'s':''}`;
-      // Shift app down for banner
+        `Essai : ${access.daysLeft} jour${access.daysLeft>1?'s':''} restant${access.daysLeft>1?'s':''}`;
       document.getElementById('app').style.marginTop = '24px';
     }
     return;
   }
 
   if(access.expired) {
-    $g('gateStatus').innerHTML = 'Votre essai a <b style="color:var(--red)">expire</b>. Entrez un code MIP pour un acces illimite.';
+    $g('gateStatus').innerHTML = 'Votre essai a <b style="color:var(--red)">expire</b>.';
   }
-
   $g('gate').classList.remove('hidden');
 }
 
 // Activate button
 $g('gateActivate').addEventListener('click', () => {
-  const code = $g('gateCode').value.trim();
+  const code = $g('gateCode').value.trim().toUpperCase();
   if(!code) { $g('gateError').textContent = 'Veuillez entrer un code.'; return; }
 
-  if(isMIPCode(code)) {
-    setLicense({ type: 'mip', code: code.toUpperCase(), activatedAt: new Date().toISOString() });
-    $g('gateError').textContent = '';
+  if(code === CODE_UNLIMITED) {
+    setLicense({ type: 'unlimited', activatedAt: new Date().toISOString() });
     $g('gate').classList.add('hidden');
     $g('trialBanner').classList.add('hidden');
     document.getElementById('app').style.marginTop = '';
     return;
   }
 
-  if(isTrialCode(code)) {
+  if(code === CODE_TRIAL) {
+    // Check if trial already used and expired
+    const existing = getLicense();
+    if(existing && existing.type === 'trial') {
+      const access = checkAccess();
+      if(!access.granted) {
+        $g('gateError').textContent = 'Votre essai a deja expire.';
+        return;
+      }
+    }
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 7);
-    setLicense({ type: 'trial', code: code.toUpperCase(), startDate: new Date().toISOString(), endDate: endDate.toISOString() });
-    $g('gateError').textContent = '';
+    setLicense({ type: 'trial', startDate: new Date().toISOString(), endDate: endDate.toISOString() });
     $g('gate').classList.add('hidden');
     const banner = $g('trialBanner');
     banner.classList.remove('hidden');
-    $g('trialBannerText').textContent = 'Essai gratuit : 7 jours restants';
+    $g('trialBannerText').textContent = 'Essai : 7 jours restants';
     document.getElementById('app').style.marginTop = '24px';
     return;
   }
 
-  $g('gateError').textContent = 'Code invalide. Utilisez un code MIP ou un code TRIAL-xxx / ESSAI-xxx.';
+  $g('gateError').textContent = 'Code invalide.';
 });
 
-// Trial button (no code needed)
-$g('gateTrial').addEventListener('click', () => {
-  const existing = getLicense();
-  if(existing && existing.type === 'trial') {
-    const access = checkAccess();
-    if(!access.granted) {
-      $g('gateError').textContent = 'Votre essai gratuit a deja expire. Entrez un code MIP.';
-      return;
-    }
-  }
-
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + 7);
-  setLicense({ type: 'trial', code: 'FREE-TRIAL', startDate: new Date().toISOString(), endDate: endDate.toISOString() });
-  $g('gate').classList.add('hidden');
-  const banner = $g('trialBanner');
-  banner.classList.remove('hidden');
-  $g('trialBannerText').textContent = 'Essai gratuit : 7 jours restants';
-  document.getElementById('app').style.marginTop = '24px';
-});
-
-// Enter key on input
+// Enter key
 $g('gateCode').addEventListener('keydown', e => {
   if(e.key === 'Enter') $g('gateActivate').click();
 });
@@ -1284,12 +1234,10 @@ $g('gateCode').addEventListener('keydown', e => {
 // Trial banner upgrade link
 $g('trialUpgrade').addEventListener('click', () => {
   $g('gate').classList.remove('hidden');
-  $g('gateStatus').innerHTML = 'Entrez un code <b>MIP</b> pour un acces illimite.';
+  $g('gateStatus').innerHTML = 'Entrez le code complet pour un acces illimite.';
 });
 
-// Init
 initGate();
-
 })();
 
 // ================================================================
