@@ -1,0 +1,27 @@
+{
+  "name": "TrackMap - MAO Maker",
+  "short_name": "TrackMap",
+  "description": "Planificateur visuel de structure musicale",
+  "start_url": "./trackmap.html",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00D9CE",
+  "icons": [
+    {
+      "src": "./trackmap-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./trackmap-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./trackmap-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

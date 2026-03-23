@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00D9CE">
+  <link rel="manifest" href="./trackmap-manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="./trackmap-icon-192.png">
+  <link rel="apple-touch-icon" href="./trackmap-icon-192.png">
   <title>TrackMap - MAO Maker</title>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
@@ -3063,6 +3067,11 @@
     }
 
     ReactDOM.createRoot(document.getElementById('app')).render(<AccessGate><App /></AccessGate>);
+  </script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./trackmap-sw.js').catch(function() {});
+    }
   </script>
 </body>
 </html>
