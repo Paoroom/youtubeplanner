@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mix Visualizer 3D - Studio</title>
+<meta name="description" content="Mix Visualizer 3D - Outil pedagogique pour visualiser et ameliorer vos mix audio">
+<meta name="theme-color" content="#08080d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MixViz 3D">
+<link rel="manifest" id="manifestLink">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSIjMDgwODBkIi8+PGNpcmNsZSBjeD0iNjQiIGN5PSI2NCIgcj0iMzAiIGZpbGw9IiM3YzVjZmMiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNDIiIHI9IjEyIiBmaWxsPSIjZTkxZThjIi8+PGNpcmNsZSBjeD0iNDUiIGN5PSI4MCIgcj0iMTYiIGZpbGw9IiMwMGQ5Y2UiIG9wYWNpdHk9IjAuNyIvPjxjaXJjbGUgY3g9Ijg1IiBjeT0iNzUiIHI9IjEwIiBmaWxsPSIjZmZkNjAwIiBvcGFjaXR5PSIwLjYiLz48L3N2Zz4=">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg: #08080d; --surface: #101018; --surface2: #16161f; --surface3: #1c1c2a;
+    --border: #252535; --text: #e8e8f0; --text-dim: #777799;
+    --accent: #00d9ce; --accent2: #e91e8c; --accent3: #7c5cfc;
+    --green: #34d399; --yellow: #fbbf24; --red: #f87171; --orange: #fb923c;
+  }
+  body { font-family:'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); overflow:hidden; height:100vh; width:100vw; user-select:none; }
+
+  #app { display:grid; grid-template-rows:44px 1fr; grid-template-columns:300px 1fr; height:100vh; }
+  #app.compare-mode { grid-template-columns:300px 1fr 1fr; }
+
+  /* Top Bar */
+  #topbar { grid-column:1/-1; display:flex; align-items:center; justify-content:space-between; padding:0 16px; background:var(--surface); border-bottom:1px solid var(--border); z-index:100; }
+  #topbar .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:13px; }
+  #topbar .logo svg { width:22px; height:22px; }
+  #topbar .actions { display:flex; align-items:center; gap:6px; }
+
+  .btn { display:inline-flex; align-items:center; gap:5px; padding:5px 12px; border-radius:5px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-family:inherit; font-size:11px; font-weight:500; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .btn:hover { background:var(--surface3); }
+  .btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
+  .btn.accent2.active { background:var(--accent2); border-color:var(--accent2); }
+  .btn svg { width:12px; height:12px; flex-shrink:0; }
+  .btn-sm { padding:3px 8px; font-size:10px; }
+  .btn-accent { background:var(--accent); color:#000; border-color:var(--accent); }
+  .btn-accent:hover { background:#00f0e4; }
+
+  /* Sidebar */
+  #sidebar { background:var(--surface); border-right:1px solid var(--border); overflow-y:auto; padding:10px; display:flex; flex-direction:column; gap:8px; scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+  #sidebar::-webkit-scrollbar { width:3px; }
+  #sidebar::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+  .panel { background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px; }
+  .panel h3 { font-size:9px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text-dim); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between; }
+  .panel h3 .badge { font-size:8px; background:var(--surface3); padding:1px 5px; border-radius:3px; font-weight:600; color:var(--accent); }
+
+  /* Dropzone */
+  .dropzone { border:2px dashed var(--border); border-radius:8px; padding:14px 10px; text-align:center; cursor:pointer; transition:all .2s; }
+  .dropzone:hover,.dropzone.dragover { border-color:var(--accent); background:rgba(0,217,206,0.04); }
+  .dropzone p { font-size:11px; color:var(--text-dim); }
+  .dropzone .filename { font-size:10px; color:var(--accent); margin-top:4px; word-break:break-all; }
+  .file-input { display:none; }
+
+  /* Upload tabs */
+  .upload-tabs { display:flex; gap:4px; margin-bottom:6px; }
+  .upload-tab { flex:1; padding:4px 8px; text-align:center; font-size:10px; font-weight:600; border-radius:5px; border:1px solid var(--border); background:var(--surface); cursor:pointer; color:var(--text-dim); transition:all .15s; }
+  .upload-tab.active { background:var(--accent); color:#000; border-color:var(--accent); }
+
+  /* Element add */
+  .add-element-row { display:flex; gap:4px; margin-bottom:8px; }
+  .add-element-row select { flex:1; background:var(--surface); border:1px solid var(--border); color:var(--text); font-family:inherit; font-size:10px; padding:4px 6px; border-radius:4px; }
+
+  /* Element list */
+  .element-list { display:flex; flex-direction:column; gap:3px; }
+  .el-item { background:rgba(255,255,255,0.02); border:1px solid transparent; border-radius:6px; padding:6px 8px; cursor:pointer; transition:all .15s; }
+  .el-item:hover { background:rgba(255,255,255,0.05); }
+  .el-item.selected { border-color:var(--accent); background:rgba(0,217,206,0.05); }
+  .el-item-header { display:flex; align-items:center; gap:6px; margin-bottom:4px; }
+  .el-item .color-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; cursor:pointer; border:1px solid rgba(255,255,255,0.15); }
+  .el-item .color-dot:hover { transform:scale(1.3); }
+  .el-item .el-name { font-size:11px; font-weight:600; flex:1; }
+  .el-item .el-remove { width:14px; height:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0.3; font-size:12px; }
+  .el-item .el-remove:hover { opacity:1; color:var(--red); }
+  .el-item .el-eye { width:14px; height:14px; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0.3; font-size:10px; }
+  .el-item .el-eye:hover { opacity:1; }
+  .el-item .el-eye.hidden { opacity:0.15; }
+
+  .el-controls { display:flex; flex-direction:column; gap:3px; }
+  .el-ctrl-row { display:flex; align-items:center; gap:4px; }
+  .el-ctrl-row label { font-size:9px; color:var(--text-dim); width:40px; flex-shrink:0; }
+  .el-ctrl-row input[type=range] { flex:1; -webkit-appearance:none; height:3px; border-radius:2px; background:var(--border); outline:none; }
+  .el-ctrl-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:8px; height:8px; border-radius:50%; background:var(--accent); cursor:pointer; }
+  .el-ctrl-row .ctrl-val { font-size:8px; color:var(--text-dim); width:28px; text-align:right; font-variant-numeric:tabular-nums; }
+
+  .color-input-hidden { position:absolute; opacity:0; width:0; height:0; }
+
+  /* Advisor panel */
+  .advice-list { display:flex; flex-direction:column; gap:4px; }
+  .advice-item { display:flex; gap:6px; padding:5px 7px; border-radius:5px; font-size:10px; line-height:1.4; }
+  .advice-item.info { background:rgba(0,217,206,0.06); border-left:2px solid var(--accent); }
+  .advice-item.warn { background:rgba(251,191,36,0.06); border-left:2px solid var(--yellow); }
+  .advice-item.good { background:rgba(52,211,153,0.06); border-left:2px solid var(--green); }
+  .advice-item.bad { background:rgba(248,113,113,0.06); border-left:2px solid var(--red); }
+  .advice-icon { flex-shrink:0; width:14px; text-align:center; }
+  .advice-text { flex:1; color:var(--text-dim); }
+  .advice-text b { color:var(--text); }
+
+  /* Spectrum overlay */
+  .spectrum-canvas { position:absolute; bottom:0; left:0; width:100%; height:80px; pointer-events:none; z-index:5; opacity:0.8; }
+
+  /* Meters */
+  .meters-bar { position:absolute; left:8px; bottom:90px; width:24px; display:flex; flex-direction:column; gap:2px; z-index:10; pointer-events:none; }
+  .meter { width:24px; height:100px; background:rgba(16,16,24,0.8); border:1px solid var(--border); border-radius:4px; position:relative; overflow:hidden; }
+  .meter-fill { position:absolute; bottom:0; left:0; right:0; transition:height 0.08s; border-radius:0 0 3px 3px; }
+  .meter-label { font-size:7px; color:var(--text-dim); text-align:center; margin-top:2px; }
+  .meter-db { position:absolute; top:2px; left:0; right:0; text-align:center; font-size:7px; color:var(--text); font-weight:700; }
+
+  /* Canvas */
+  .canvas-wrap { position:relative; overflow:hidden; background:var(--bg); }
+  .canvas-wrap canvas.scene-canvas { display:block; }
+  .canvas-wrap .label-overlay { position:absolute; top:8px; left:8px; font-size:10px; font-weight:700; color:var(--text-dim); background:rgba(16,16,24,0.8); padding:3px 8px; border-radius:4px; border:1px solid var(--border); z-index:5; }
+
+  .controls-help { position:absolute; top:8px; right:8px; font-size:9px; color:var(--text-dim); background:rgba(16,16,24,0.8); backdrop-filter:blur(8px); padding:6px 10px; border-radius:6px; border:1px solid var(--border); pointer-events:none; opacity:0.6; z-index:10; }
+  .controls-help kbd { display:inline-block; background:var(--surface3); border:1px solid var(--border); border-radius:2px; padding:0 3px; font-family:inherit; font-size:8px; color:var(--text); }
+
+  #tooltip { position:fixed; display:none; pointer-events:none; background:rgba(16,16,24,0.95); backdrop-filter:blur(12px); border:1px solid var(--border); border-radius:8px; padding:10px 14px; font-size:11px; z-index:500; min-width:180px; }
+  #tooltip .tt-name { font-weight:700; font-size:14px; margin-bottom:6px; }
+  #tooltip .tt-row { display:flex; justify-content:space-between; gap:12px; color:var(--text-dim); margin-top:2px; }
+  #tooltip .tt-val { color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
+
+  .transport { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); display:flex; gap:5px; z-index:30; }
+  .transport button { width:32px; height:32px; border-radius:50%; border:1px solid var(--border); background:rgba(16,16,24,0.9); color:var(--text); cursor:pointer; display:flex; align-items:center; justify-content:center; transition:all .15s; backdrop-filter:blur(8px); }
+  .transport button:hover { border-color:var(--accent); color:var(--accent); }
+  .transport button.active { background:var(--accent); color:#000; border-color:var(--accent); }
+  .transport button svg { width:12px; height:12px; }
+
+  .hud-bottom { position:absolute; bottom:84px; left:50%; transform:translateX(-50%); display:flex; gap:16px; background:rgba(16,16,24,0.8); backdrop-filter:blur(8px); padding:4px 14px; border-radius:12px; border:1px solid var(--border); pointer-events:none; font-size:9px; color:var(--text-dim); z-index:10; }
+
+  .empty-state { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; color:var(--text-dim); }
+  .empty-state svg { opacity:0.15; }
+  .empty-state p { font-size:12px; }
+
+  .progress-bar { position:absolute; bottom:80px; left:0; height:2px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width 0.1s linear; z-index:10; }
+
+  .analyzing-overlay { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(8,8,13,0.9); z-index:200; gap:12px; }
+  .analyzing-overlay .spinner { width:32px; height:32px; border:3px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin 0.7s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  .slider-row { display:flex; align-items:center; gap:6px; margin-bottom:6px; }
+  .slider-row:last-child { margin-bottom:0; }
+  .slider-row label { font-size:10px; color:var(--text-dim); width:55px; flex-shrink:0; }
+  .slider-row input[type=range] { flex:1; -webkit-appearance:none; height:3px; border-radius:2px; background:var(--border); outline:none; }
+  .slider-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface); }
+
+  @media (max-width:900px) { #app,#app.compare-mode { grid-template-columns:1fr; } #sidebar { display:none; } }
+
+  /* ======== ACCESS GATE ======== */
+  #gate { position:fixed; inset:0; z-index:9999; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  #gate.hidden { display:none; }
+  .gate-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:40px 36px; max-width:400px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+  .gate-logo { font-size:28px; font-weight:800; margin-bottom:6px; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .gate-sub { font-size:12px; color:var(--text-dim); margin-bottom:28px; }
+  .gate-input { width:100%; padding:12px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:15px; text-align:center; letter-spacing:2px; margin-bottom:12px; transition:border-color .2s; }
+  .gate-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 12px rgba(0,217,206,0.15); }
+  .gate-input::placeholder { letter-spacing:0; color:var(--text-dim); opacity:0.5; }
+  .gate-btn { width:100%; padding:12px; border:none; border-radius:8px; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; margin-bottom:8px; }
+  .gate-btn-primary { background:var(--accent); color:#000; }
+  .gate-btn-primary:hover { background:#00f0e4; }
+  .gate-error { color:var(--red); font-size:11px; min-height:16px; margin-bottom:8px; }
+  .gate-status { font-size:10px; color:var(--text-dim); margin-top:12px; }
+  .gate-status b { color:var(--accent); }
+
+  /* Trial banner */
+  .trial-banner { position:fixed; top:0; left:0; right:0; z-index:9998; background:linear-gradient(90deg,var(--accent2),var(--accent3)); color:#fff; font-size:11px; font-weight:600; text-align:center; padding:4px 12px; }
+  .trial-banner.hidden { display:none; }
+  .trial-banner a { color:#fff; text-decoration:underline; margin-left:8px; cursor:pointer; }
+
+  /* Install banner */
+  .install-banner { position:fixed; bottom:16px; right:16px; z-index:9000; background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.5); max-width:320px; }
+  .install-banner.hidden { display:none; }
+  .install-banner-text { font-size:11px; color:var(--text-dim); flex:1; }
+  .install-banner-text b { color:var(--text); display:block; font-size:12px; margin-bottom:2px; }
+  .install-banner-btn { padding:6px 14px; border-radius:6px; border:none; background:var(--accent); color:#000; font-family:inherit; font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .install-banner-btn:hover { background:#00f0e4; }
+  .install-banner-close { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px; padding:4px; }
+</style>
+</head>
+<body>
+
+<!-- ACCESS GATE -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">Mix Visualizer 3D</div>
+    <div class="gate-sub">Outil pedagogique de visualisation de mix audio</div>
+    <input type="text" class="gate-input" id="gateCode" placeholder="Entrez votre code d'acces" maxlength="20" autocomplete="off" spellcheck="false">
+    <div class="gate-error" id="gateError"></div>
+    <button class="gate-btn gate-btn-primary" id="gateActivate">Activer</button>
+    <div class="gate-status" id="gateStatus"></div>
+  </div>
+</div>
+
+<!-- TRIAL BANNER -->
+<div class="trial-banner hidden" id="trialBanner">
+  <span id="trialBannerText"></span>
+  <a id="trialUpgrade">Entrer un code</a>
+</div>
+
+<!-- INSTALL BANNER -->
+<div class="install-banner hidden" id="installBanner">
+  <div class="install-banner-text"><b>Installer l'application</b>Utilisez Mix Visualizer 3D comme une app native</div>
+  <button class="install-banner-btn" id="installBtn">Installer</button>
+  <button class="install-banner-close" id="installClose">&times;</button>
+</div>
+
+<div id="app">
+  <div id="topbar">
+    <div class="logo">
+      <svg viewBox="0 0 28 28" fill="none"><circle cx="14" cy="14" r="13" stroke="currentColor" stroke-width="1.5" opacity="0.3"/><circle cx="14" cy="14" r="6" fill="url(#g1)"/><circle cx="14" cy="8" r="2.5" fill="url(#g2)"/><circle cx="9" cy="18" r="3.5" fill="url(#g3)" opacity="0.7"/><circle cx="19" cy="17" r="2" fill="url(#g4)" opacity="0.6"/><defs><radialGradient id="g1"><stop stop-color="#7c5cfc"/><stop offset="1" stop-color="#5c3cdc"/></radialGradient><radialGradient id="g2"><stop stop-color="#e91e8c"/><stop offset="1" stop-color="#c9006c"/></radialGradient><radialGradient id="g3"><stop stop-color="#00d9ce"/><stop offset="1" stop-color="#00a99e"/></radialGradient><radialGradient id="g4"><stop stop-color="#ffd600"/><stop offset="1" stop-color="#ffaa00"/></radialGradient></defs></svg>
+      Mix Visualizer 3D
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnCompare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="18" rx="1"/></svg> Comparer</button>
+      <button class="btn" id="btnReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6M23 20v-6h-6"/><path d="M20.49 9A9 9 0 005.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 013.51 15"/></svg> Reset</button>
+    </div>
+  </div>
+
+  <div id="sidebar">
+    <div class="upload-tabs" id="uploadTabs" style="display:none">
+      <div class="upload-tab active" data-slot="0">Mon Mix</div>
+      <div class="upload-tab" data-slot="1">Reference</div>
+    </div>
+
+    <div class="dropzone" id="dropzone0">
+      <p>Glisser un audio ou <strong style="color:var(--accent)">parcourir</strong></p>
+      <p style="font-size:9px;margin-top:2px;opacity:0.4">WAV, MP3, FLAC, OGG</p>
+      <div class="filename" id="fileName0"></div>
+    </div>
+    <input type="file" class="file-input" id="fileInput0" accept="audio/*">
+
+    <div class="dropzone" id="dropzone1" style="display:none">
+      <p>Reference : <strong style="color:var(--accent2)">parcourir</strong></p>
+      <div class="filename" id="fileName1"></div>
+    </div>
+    <input type="file" class="file-input" id="fileInput1" accept="audio/*">
+
+    <!-- MANUAL ELEMENT PLACEMENT -->
+    <div class="panel" id="panelElements">
+      <h3>Elements du mix <span class="badge" id="elCount">0</span></h3>
+      <div class="add-element-row">
+        <select id="addElementSelect">
+          <option value="">+ Ajouter un element...</option>
+        </select>
+        <button class="btn btn-sm btn-accent" id="btnAddElement">+</button>
+      </div>
+      <div class="element-list" id="elementList"></div>
+    </div>
+
+    <!-- EDITOR for selected element -->
+    <div class="panel" id="panelEditor" style="display:none">
+      <h3>Editer : <span id="editorTitle" style="color:var(--accent)"></span></h3>
+      <div class="el-controls">
+        <div class="el-ctrl-row"><label>Pan</label><input type="range" id="edPan" min="-100" max="100" value="0"><span class="ctrl-val" id="edPanVal">C</span></div>
+        <div class="el-ctrl-row"><label>Volume</label><input type="range" id="edVol" min="0" max="100" value="70"><span class="ctrl-val" id="edVolVal">70%</span></div>
+        <div class="el-ctrl-row"><label>Freq</label><input type="range" id="edFreq" min="0" max="100" value="50"><span class="ctrl-val" id="edFreqVal">1kHz</span></div>
+        <div class="el-ctrl-row"><label>Depth</label><input type="range" id="edDepth" min="0" max="100" value="20"><span class="ctrl-val" id="edDepthVal">20%</span></div>
+      </div>
+    </div>
+
+    <!-- MIX ADVISOR -->
+    <div class="panel" id="panelAdvisor" style="display:none">
+      <h3>Conseils de mix</h3>
+      <div class="advice-list" id="adviceList"></div>
+    </div>
+
+    <!-- CAMERA -->
+    <div class="panel">
+      <h3>Camera</h3>
+      <div class="slider-row"><label>Zoom</label><input type="range" id="sliderZoom" min="4" max="40" value="14"></div>
+      <div class="slider-row"><label>Elevation</label><input type="range" id="sliderElevation" min="-10" max="80" value="25"></div>
+      <div class="slider-row"><label>Angle</label><input type="range" id="sliderAngle" min="-180" max="180" value="0"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Legende</h3>
+      <div style="font-size:10px;color:var(--text-dim);line-height:1.9">
+        <div><span style="color:var(--accent)">&#8594;</span> <b style="color:var(--text)">X</b> Stereo (L / R)</div>
+        <div><span style="color:var(--accent2)">&#8593;</span> <b style="color:var(--text)">Y</b> Frequence (grave / aigu)</div>
+        <div><span style="color:var(--accent3)">&#9679;</span> <b style="color:var(--text)">Taille</b> Volume</div>
+        <div><span style="color:var(--yellow)">&#8599;</span> <b style="color:var(--text)">Z</b> Profondeur (dry / wet)</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas A -->
+  <div class="canvas-wrap" id="canvasWrap0">
+    <div class="empty-state" id="emptyState0">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <p>Importer un audio puis ajouter vos elements</p>
+    </div>
+    <canvas class="scene-canvas" id="scene0"></canvas>
+    <canvas class="spectrum-canvas" id="spectrum0"></canvas>
+    <div class="controls-help" id="controlsHelp0" style="display:none">
+      <div><kbd>Clic G</kbd> Orbite &nbsp;<kbd>Clic D</kbd> Pan &nbsp;<kbd>Molette</kbd> Zoom</div>
+    </div>
+    <div class="hud-bottom" id="hud0" style="display:none">
+      <span>&#8592; L &#8212; R &#8594;</span><span>&#8595; Grave &#8212; Aigu &#8593;</span><span>Taille = Volume</span>
+    </div>
+    <div class="transport" id="transport0" style="display:none">
+      <button class="btnPlay" data-slot="0" title="Play"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+      <button class="btnPause" data-slot="0" title="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+    </div>
+    <div class="progress-bar" id="progressBar0" style="width:0%"></div>
+  </div>
+
+  <!-- Canvas B -->
+  <div class="canvas-wrap" id="canvasWrap1" style="display:none">
+    <div class="label-overlay" style="color:var(--accent2)">REFERENCE</div>
+    <div class="empty-state" id="emptyState1">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      <p>Importer la reference</p>
+    </div>
+    <canvas class="scene-canvas" id="scene1"></canvas>
+    <canvas class="spectrum-canvas" id="spectrum1"></canvas>
+    <div class="transport" id="transport1" style="display:none">
+      <button class="btnPlay" data-slot="1" title="Play"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg></button>
+      <button class="btnPause" data-slot="1" title="Pause"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg></button>
+    </div>
+    <div class="progress-bar" id="progressBar1" style="width:0%"></div>
+  </div>
+</div>
+
+<div id="tooltip">
+  <div class="tt-name"></div>
+  <div class="tt-row"><span>Volume</span><span class="tt-val" id="ttVol"></span></div>
+  <div class="tt-row"><span>Pan</span><span class="tt-val" id="ttPan"></span></div>
+  <div class="tt-row"><span>Zone freq</span><span class="tt-val" id="ttFreq"></span></div>
+  <div class="tt-row"><span>Profondeur</span><span class="tt-val" id="ttDepth"></span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ======== ELEMENT PRESETS ========
+const PRESETS = [
+  { id:'kick',   name:'Kick',          color:'#d4a053', defaultFreq:0.10, defaultPan:0,   defaultVol:80, defaultDepth:15 },
+  { id:'snare',  name:'Snare',         color:'#e63946', defaultFreq:0.35, defaultPan:0,   defaultVol:75, defaultDepth:25 },
+  { id:'hihat',  name:'Hi-Hat',        color:'#b5e48c', defaultFreq:0.80, defaultPan:15,  defaultVol:55, defaultDepth:20 },
+  { id:'clap',   name:'Clap / Perc',   color:'#ffd166', defaultFreq:0.50, defaultPan:-10, defaultVol:60, defaultDepth:30 },
+  { id:'sub',    name:'Sub Bass',      color:'#7c5cfc', defaultFreq:0.04, defaultPan:0,   defaultVol:85, defaultDepth:25 },
+  { id:'bass',   name:'Bass',          color:'#00c9a7', defaultFreq:0.18, defaultPan:0,   defaultVol:80, defaultDepth:20 },
+  { id:'vocal',  name:'Lead Vocal',    color:'#a78bfa', defaultFreq:0.55, defaultPan:0,   defaultVol:85, defaultDepth:10 },
+  { id:'bgv',    name:'BGV / Choeurs', color:'#e91e8c', defaultFreq:0.58, defaultPan:30,  defaultVol:55, defaultDepth:55 },
+  { id:'keys',   name:'Keys / Piano',  color:'#f4a261', defaultFreq:0.45, defaultPan:-20, defaultVol:60, defaultDepth:40 },
+  { id:'guitar', name:'Guitare',       color:'#2a9d8f', defaultFreq:0.48, defaultPan:25,  defaultVol:60, defaultDepth:35 },
+  { id:'synth',  name:'Synth / Pad',   color:'#4cc9f0', defaultFreq:0.50, defaultPan:0,   defaultVol:55, defaultDepth:50 },
+  { id:'strings',name:'Strings',       color:'#fb7185', defaultFreq:0.52, defaultPan:0,   defaultVol:50, defaultDepth:60 },
+  { id:'fx',     name:'FX / Riser',    color:'#fdba74', defaultFreq:0.65, defaultPan:0,   defaultVol:45, defaultDepth:65 },
+  { id:'cymbal', name:'Cymbales',      color:'#d0d0d0', defaultFreq:0.88, defaultPan:-20, defaultVol:45, defaultDepth:35 },
+  { id:'air',    name:'Air / Brillance',color:'#f0f0ff', defaultFreq:0.95, defaultPan:0,   defaultVol:30, defaultDepth:70 },
+  { id:'custom', name:'Custom',        color:'#888888', defaultFreq:0.50, defaultPan:0,   defaultVol:60, defaultDepth:30 },
+];
+
+// Frequency zone labels for display
+const FREQ_ZONES = [
+  { label:'Sub',     color:'#7c5cfc', y0:0,    y1:0.06, hz:'20-80 Hz' },
+  { label:'Bass',    color:'#a78bfa', y0:0.06, y1:0.22, hz:'80-300 Hz' },
+  { label:'Low-Mid', color:'#60a5fa', y0:0.22, y1:0.42, hz:'300-800 Hz' },
+  { label:'Mid',     color:'#34d399', y0:0.42, y1:0.65, hz:'800-4k Hz' },
+  { label:'Presence',color:'#fbbf24', y0:0.65, y1:0.82, hz:'4k-8k Hz' },
+  { label:'Air',     color:'#f87171', y0:0.82, y1:1.0,  hz:'8k-20k Hz' },
+];
+
+const SH = 8, SW = 6, SD = 5;
+const $=id=>document.getElementById(id);
+const mouse = new THREE.Vector2(-999,-999);
+const raycaster = new THREE.Raycaster();
+
+// ======== STATE ========
+const slots = [createSlotState(), createSlotState()];
+let compareMode = false;
+let activeSlot = 0;
+let selectedElIdx = -1;
+let customColors = {};
+
+function createSlotState() {
+  return {
+    audioCtx:null, audioBuffer:null, source:null, analyser:null, analyserL:null, analyserR:null, splitter:null, gainNode:null,
+    isPlaying:false, playStart:0, playOff:0,
+    elements:[], // manually placed elements {id, name, color, pan, vol, freq, depth, visible}
+    scene:null, camera:null, renderer:null, groups:[], animId:null,
+    camDist:14, camTheta:0, camPhi:25*Math.PI/180, camTarget:new THREE.Vector3(0,2.5,0),
+    dragging:false, panning:false, lastX:0, lastY:0, hovered:null,
+  };
+}
+
+// Color persistence
+try { customColors = JSON.parse(localStorage.getItem('mixviz_colors')||'{}') || {}; } catch(e){}
+function saveColors() { try { localStorage.setItem('mixviz_colors', JSON.stringify(customColors)); } catch(e){} }
+function getColor(id) { return customColors[id] || PRESETS.find(p=>p.id===id)?.color || '#888'; }
+
+// Populate preset selector
+const sel = $('addElementSelect');
+PRESETS.forEach(p => { const o=document.createElement('option'); o.value=p.id; o.textContent=p.name; sel.appendChild(o); });
+
+// ======== FILE LOADING ========
+[0,1].forEach(slot => {
+  const dz=$('dropzone'+slot), fi=$('fileInput'+slot);
+  dz.addEventListener('click', ()=>fi.click());
+  dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('dragover'); });
+  dz.addEventListener('dragleave', ()=>dz.classList.remove('dragover'));
+  dz.addEventListener('drop', e=>{ e.preventDefault(); dz.classList.remove('dragover'); if(e.dataTransfer.files.length) loadFile(slot,e.dataTransfer.files[0]); });
+  fi.addEventListener('change', e=>{ if(e.target.files.length) loadFile(slot,e.target.files[0]); });
+});
+
+async function loadFile(slot, file) {
+  $('fileName'+slot).textContent = file.name;
+  const s = slots[slot];
+  if(!s.audioCtx) s.audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  const wrap = $('canvasWrap'+slot);
+  let ov = wrap.querySelector('.analyzing-overlay');
+  if(!ov) { ov=document.createElement('div'); ov.className='analyzing-overlay'; ov.innerHTML='<div class="spinner"></div>'; wrap.appendChild(ov); }
+  try {
+    const buf = await file.arrayBuffer();
+    s.audioBuffer = await s.audioCtx.decodeAudioData(buf);
+    $('emptyState'+slot).style.display='none';
+    $('transport'+slot).style.display='flex';
+    if(slot===0) { $('hud0').style.display='flex'; $('controlsHelp0').style.display='block'; }
+    initScene(slot);
+    buildMeshes(slot);
+    startRenderLoop(slot);
+    // Run audio analysis for advisor
+    if(slot===activeSlot) runMixAdvisor(slot);
+  } catch(err) {
+    console.error(err);
+    alert('Erreur: '+err.message);
+  }
+  if(ov) ov.remove();
+}
+
+// ======== MANUAL ELEMENT MANAGEMENT ========
+$('btnAddElement').addEventListener('click', () => {
+  const id = sel.value;
+  if(!id) return;
+  const preset = PRESETS.find(p=>p.id===id);
+  if(!preset) return;
+  const s = slots[activeSlot];
+  // Allow duplicates with suffix
+  const existing = s.elements.filter(e=>e.id.startsWith(id));
+  const uid = existing.length > 0 ? id+'_'+(existing.length+1) : id;
+  s.elements.push({
+    id: uid,
+    baseId: id,
+    name: existing.length > 0 ? preset.name+' '+(existing.length+1) : preset.name,
+    color: getColor(id),
+    pan: preset.defaultPan / 100,
+    vol: preset.defaultVol / 100,
+    freq: preset.defaultFreq,
+    depth: preset.defaultDepth / 100,
+    visible: true,
+  });
+  sel.value = '';
+  selectedElIdx = s.elements.length - 1;
+  refreshElementList();
+  buildMeshes(activeSlot);
+  if(slots[activeSlot].audioBuffer) runMixAdvisor(activeSlot);
+});
+
+function refreshElementList() {
+  const s = slots[activeSlot];
+  const list = $('elementList');
+  list.innerHTML = '';
+  $('elCount').textContent = s.elements.length;
+
+  s.elements.forEach((el, i) => {
+    const div = document.createElement('div');
+    div.className = 'el-item' + (i===selectedElIdx?' selected':'');
+    div.innerHTML = `
+      <div class="el-item-header">
+        <span class="color-dot" style="background:${el.color}" data-idx="${i}"></span>
+        <input type="color" class="color-input-hidden" data-idx="${i}" value="${el.color}">
+        <span class="el-name">${el.name}</span>
+        <span class="el-eye ${el.visible?'':'hidden'}" data-idx="${i}">${el.visible?'&#128065;':'&#128064;'}</span>
+        <span class="el-remove" data-idx="${i}">&times;</span>
+      </div>
+    `;
+    div.addEventListener('click', (e) => {
+      if(e.target.classList.contains('el-remove')||e.target.classList.contains('el-eye')||e.target.classList.contains('color-dot')) return;
+      selectedElIdx = i;
+      refreshElementList();
+      showEditor(i);
+    });
+    list.appendChild(div);
+  });
+
+  // Eye toggle
+  list.querySelectorAll('.el-eye').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.idx;
+      s.elements[idx].visible = !s.elements[idx].visible;
+      refreshElementList();
+      updateVisibility(activeSlot);
+    });
+  });
+
+  // Remove
+  list.querySelectorAll('.el-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = +btn.dataset.idx;
+      s.elements.splice(idx, 1);
+      if(selectedElIdx >= s.elements.length) selectedElIdx = s.elements.length-1;
+      refreshElementList();
+      buildMeshes(activeSlot);
+      if(selectedElIdx < 0) $('panelEditor').style.display='none';
+      else showEditor(selectedElIdx);
+      if(s.audioBuffer) runMixAdvisor(activeSlot);
+    });
+  });
+
+  // Color
+  list.querySelectorAll('.color-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      dot.nextElementSibling.click();
+    });
+  });
+  list.querySelectorAll('.color-input-hidden').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const idx = +inp.dataset.idx;
+      s.elements[idx].color = inp.value;
+      customColors[s.elements[idx].baseId] = inp.value;
+      saveColors();
+      refreshElementList();
+      buildMeshes(activeSlot);
+    });
+  });
+
+  if(selectedElIdx >= 0 && selectedElIdx < s.elements.length) showEditor(selectedElIdx);
+  else $('panelEditor').style.display='none';
+}
+
+// ======== ELEMENT EDITOR ========
+function showEditor(idx) {
+  const s = slots[activeSlot];
+  const el = s.elements[idx];
+  if(!el) return;
+  $('panelEditor').style.display='block';
+  $('editorTitle').textContent = el.name;
+  $('editorTitle').style.color = el.color;
+  $('edPan').value = Math.round(el.pan*100);
+  $('edVol').value = Math.round(el.vol*100);
+  $('edFreq').value = Math.round(el.freq*100);
+  $('edDepth').value = Math.round(el.depth*100);
+  updateEditorLabels(el);
+}
+
+function updateEditorLabels(el) {
+  const pan = Math.round(el.pan*100);
+  $('edPanVal').textContent = pan<-5 ? 'L'+Math.abs(pan) : pan>5 ? 'R'+pan : 'C';
+  $('edVolVal').textContent = Math.round(el.vol*100)+'%';
+  // Convert freq position to Hz label
+  const hz = freqPosToHz(el.freq);
+  $('edFreqVal').textContent = hz >= 1000 ? (hz/1000).toFixed(1)+'k' : Math.round(hz)+'Hz';
+  $('edDepthVal').textContent = Math.round(el.depth*100)+'%';
+}
+
+function freqPosToHz(pos) {
+  // Logarithmic mapping: 0->20Hz, 1->20000Hz
+  return 20 * Math.pow(1000, pos);
+}
+
+['edPan','edVol','edFreq','edDepth'].forEach(id => {
+  $(id).addEventListener('input', () => {
+    if(selectedElIdx < 0) return;
+    const s = slots[activeSlot];
+    const el = s.elements[selectedElIdx];
+    if(!el) return;
+    el.pan = parseInt($('edPan').value) / 100;
+    el.vol = parseInt($('edVol').value) / 100;
+    el.freq = parseInt($('edFreq').value) / 100;
+    el.depth = parseInt($('edDepth').value) / 100;
+    updateEditorLabels(el);
+    buildMeshes(activeSlot);
+    if(s.audioBuffer) runMixAdvisor(activeSlot);
+  });
+});
+
+function updateVisibility(slot) {
+  const s = slots[slot];
+  s.groups.forEach(g => { g.group.visible = g.element.visible; });
+}
+
+// ======== MIX ADVISOR ========
+function runMixAdvisor(slot) {
+  const s = slots[slot];
+  const advice = [];
+  const els = s.elements;
+
+  if(els.length === 0) {
+    $('panelAdvisor').style.display='none';
+    return;
+  }
+  $('panelAdvisor').style.display='block';
+
+  // 1. Check for frequency masking (elements in similar freq range)
+  for(let i=0; i<els.length; i++) {
+    for(let j=i+1; j<els.length; j++) {
+      const a=els[i], b=els[j];
+      const dist = Math.abs(a.freq - b.freq);
+      if(dist < 0.08 && a.visible && b.visible) {
+        const panDist = Math.abs(a.pan - b.pan);
+        if(panDist < 0.3) {
+          advice.push({
+            type:'warn',
+            text:`<b>${a.name}</b> et <b>${b.name}</b> se chevauchent en frequence (~${Math.round(freqPosToHz((a.freq+b.freq)/2))}Hz). Essayez un <b>EQ cut</b> sur l'un des deux ou <b>pannez</b> davantage pour separer.`
+          });
+        }
+      }
+    }
+  }
+
+  // 2. Check bass in stereo
+  els.filter(e=>e.freq<0.22 && e.visible).forEach(e => {
+    if(Math.abs(e.pan) > 0.15) {
+      advice.push({
+        type:'warn',
+        text:`<b>${e.name}</b> est panne a ${Math.abs(Math.round(e.pan*100))}% ${e.pan>0?'droite':'gauche'}. Les basses frequences doivent rester au <b>centre</b> pour la coherence mono et l'energie.`
+      });
+    }
+  });
+
+  // 3. Check vocal position
+  const vocals = els.filter(e=>(e.baseId==='vocal') && e.visible);
+  vocals.forEach(v => {
+    if(v.depth > 0.4) {
+      advice.push({
+        type:'warn',
+        text:`<b>${v.name}</b> est trop en arriere (depth ${Math.round(v.depth*100)}%). Reduisez la <b>reverb</b> et le <b>delay</b> pour rapprocher la voix devant.`
+      });
+    }
+    if(Math.abs(v.pan) > 0.2) {
+      advice.push({
+        type:'info',
+        text:`<b>${v.name}</b> est decentree. La lead vocal est generalement au <b>centre</b> pour un impact maximal.`
+      });
+    }
+  });
+
+  // 4. Stereo balance
+  const leftEnergy = els.filter(e=>e.pan<-0.1 && e.visible).reduce((s,e)=>s+e.vol, 0);
+  const rightEnergy = els.filter(e=>e.pan>0.1 && e.visible).reduce((s,e)=>s+e.vol, 0);
+  const centerEnergy = els.filter(e=>Math.abs(e.pan)<=0.1 && e.visible).reduce((s,e)=>s+e.vol, 0);
+  const total = leftEnergy + rightEnergy + centerEnergy;
+
+  if(total > 0) {
+    const balance = (rightEnergy - leftEnergy) / total;
+    if(Math.abs(balance) > 0.2) {
+      advice.push({
+        type:'warn',
+        text:`Le mix penche a <b>${balance>0?'droite':'gauche'}</b>. Equilibrez en pannant des elements du cote oppose ou en ajustant les volumes.`
+      });
+    }
+    if(centerEnergy / total > 0.8 && els.length > 3) {
+      advice.push({
+        type:'info',
+        text:`La plupart des elements sont au <b>centre</b>. Utilisez le panning pour creer de l'espace et de la largeur stereo.`
+      });
+    }
+  }
+
+  // 5. Frequency distribution
+  const zones = {sub:0,bass:0,mid:0,high:0};
+  els.filter(e=>e.visible).forEach(e => {
+    if(e.freq<0.10) zones.sub += e.vol;
+    else if(e.freq<0.30) zones.bass += e.vol;
+    else if(e.freq<0.70) zones.mid += e.vol;
+    else zones.high += e.vol;
+  });
+  const zt = zones.sub+zones.bass+zones.mid+zones.high;
+  if(zt > 0) {
+    if((zones.sub+zones.bass)/zt > 0.55) {
+      advice.push({ type:'warn', text:`Beaucoup d'energie dans les <b>graves</b>. Verifiez avec un analyseur - un <b>high-pass</b> sur les elements non-bass peut nettoyer le bas du spectre.` });
+    }
+    if(zones.high/zt < 0.05 && els.length > 3) {
+      advice.push({ type:'info', text:`Peu d'elements dans les <b>aigus</b>. Ajoutez de l'<b>air</b> (EQ boost shelf 10kHz+) sur le master ou certains elements pour plus de brillance.` });
+    }
+    if(zones.mid/zt > 0.6) {
+      advice.push({ type:'warn', text:`Trop d'energie concentree dans les <b>mediums</b>. Creusez avec un <b>EQ cut</b> entre 300-600Hz sur les elements secondaires pour plus de clarte.` });
+    }
+  }
+
+  // 6. Depth distribution
+  const frontEls = els.filter(e=>e.depth<0.2 && e.visible);
+  const backEls = els.filter(e=>e.depth>0.5 && e.visible);
+  if(frontEls.length > 0 && backEls.length === 0 && els.length > 3) {
+    advice.push({ type:'info', text:`Tous les elements sont <b>devant</b>. Reculez certains elements (pad, reverb, BGV) avec plus de <b>reverb/delay</b> pour creer de la profondeur.` });
+  }
+
+  // 7. Volume check
+  const loudEls = els.filter(e=>e.vol>0.85 && e.visible);
+  if(loudEls.length > 3) {
+    advice.push({ type:'warn', text:`${loudEls.length} elements sont a volume eleve (>85%). Si tout est fort, <b>rien ne ressort</b>. Baissez les elements secondaires pour creer du contraste.` });
+  }
+
+  // 8. Good practices
+  if(els.length >= 4 && advice.filter(a=>a.type==='warn').length === 0) {
+    advice.push({ type:'good', text:`Le placement semble <b>equilibre</b>. Bonne repartition des elements dans l'espace !` });
+  }
+
+  // Audio analysis advice
+  if(s.audioBuffer && s.analyser) {
+    analyzeAudioForAdvice(s, advice);
+  }
+
+  // Render
+  const al = $('adviceList');
+  al.innerHTML = '';
+  if(advice.length === 0) {
+    advice.push({ type:'info', text:'Ajoutez des elements pour recevoir des conseils de mix.' });
+  }
+  advice.forEach(a => {
+    const icons = {info:'&#128161;', warn:'&#9888;&#65039;', good:'&#9989;', bad:'&#10060;'};
+    const div = document.createElement('div');
+    div.className = 'advice-item ' + a.type;
+    div.innerHTML = `<span class="advice-icon">${icons[a.type]||''}</span><span class="advice-text">${a.text}</span>`;
+    al.appendChild(div);
+  });
+}
+
+// Real-time audio analysis for additional advice
+function analyzeAudioForAdvice(s, advice) {
+  if(!s.analyser) return;
+  const fftSize = s.analyser.fftSize;
+  const data = new Float32Array(s.analyser.frequencyBinCount);
+  s.analyser.getFloatFrequencyData(data);
+
+  // Check if we have actual data (not all -Infinity)
+  const hasData = data.some(v => v > -100);
+  if(!hasData) return;
+
+  // Compute energy in bands
+  const sr = s.audioCtx.sampleRate;
+  const binHz = sr / fftSize;
+  let subE=0, bassE=0, midE=0, highE=0, totalE=0;
+  for(let i=0; i<data.length; i++) {
+    const hz = i * binHz;
+    const linear = Math.pow(10, data[i]/20);
+    totalE += linear;
+    if(hz < 80) subE += linear;
+    else if(hz < 300) bassE += linear;
+    else if(hz < 4000) midE += linear;
+    else highE += linear;
+  }
+
+  if(totalE > 0) {
+    const subR = subE/totalE, bassR = bassE/totalE, midR = midE/totalE, highR = highE/totalE;
+    if(subR > 0.3) {
+      advice.push({ type:'bad', text:`L'analyse audio montre un <b>exces de sub</b> (${Math.round(subR*100)}% de l'energie). Appliquez un <b>high-pass filter ~30Hz</b> sur le master.` });
+    }
+    if(highR < 0.02) {
+      advice.push({ type:'info', text:`Tres peu d'<b>aigus</b> detectes dans l'audio. Un <b>shelf EQ</b> a 10kHz+ pourrait ajouter de l'air.` });
+    }
+  }
+}
+
+// ======== THREE.JS SCENE ========
+function initScene(slot) {
+  const s = slots[slot];
+  if(s.renderer) {
+    s.groups.forEach(g=>s.scene.remove(g.group));
+    s.groups = [];
+    return;
+  }
+  const wrap = $('canvasWrap'+slot);
+  const canvas = $('scene'+slot);
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+
+  s.scene = new THREE.Scene();
+  s.scene.fog = new THREE.FogExp2(0x08080d, 0.012);
+  s.camera = new THREE.PerspectiveCamera(45, w/h, 0.1, 300);
+  updateCam(slot);
+
+  s.renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+  s.renderer.setSize(w, h);
+  s.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  s.renderer.setClearColor(0x08080d);
+  s.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  s.renderer.toneMappingExposure = 1.2;
+
+  s.scene.add(new THREE.AmbientLight(0x505070, 0.6));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.8); dl.position.set(5,12,8); s.scene.add(dl);
+  const pl1 = new THREE.PointLight(0x00d9ce, 0.4, 40); pl1.position.set(-8,6,3); s.scene.add(pl1);
+  const pl2 = new THREE.PointLight(0xe91e8c, 0.3, 40); pl2.position.set(8,3,-3); s.scene.add(pl2);
+
+  buildStage(s.scene);
+  setupCamControls(slot);
+  window.addEventListener('resize', ()=>onResize(slot));
+}
+
+function buildStage(sc) {
+  const fg = new THREE.PlaneGeometry(SW*2+4, SD+4);
+  const fm = new THREE.MeshPhysicalMaterial({ color:0x08080e, metalness:0.85, roughness:0.2, transparent:true, opacity:0.4 });
+  const fl = new THREE.Mesh(fg, fm); fl.rotation.x=-Math.PI/2; fl.position.y=-0.02; sc.add(fl);
+
+  const eg = new THREE.EdgesGeometry(new THREE.PlaneGeometry(SW*2+2, SD+2));
+  const em = new THREE.LineBasicMaterial({ color:0x00d9ce, transparent:true, opacity:0.1 });
+  sc.add(new THREE.LineSegments(eg, em)).rotation.x=-Math.PI/2;
+
+  const gm = new THREE.LineBasicMaterial({ color:0x181825, transparent:true, opacity:0.5 });
+
+  FREQ_ZONES.forEach(z => {
+    const y0=z.y0*SH, y1=z.y1*SH;
+    const pg = new THREE.PlaneGeometry(SW*2+2, y1-y0);
+    const pm = new THREE.MeshBasicMaterial({ color:new THREE.Color(z.color), transparent:true, opacity:0.04, side:THREE.DoubleSide });
+    const p = new THREE.Mesh(pg, pm); p.position.set(0,(y0+y1)/2,-SD/2-0.5); sc.add(p);
+    const lg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-SW-1,y1,-SD/2-0.5), new THREE.Vector3(SW+1,y1,-SD/2-0.5)]);
+    sc.add(new THREE.Line(lg, new THREE.LineBasicMaterial({ color:new THREE.Color(z.color), transparent:true, opacity:0.2 })));
+    addLabel(sc, z.label+' ('+z.hz+')', -SW-3.2, (y0+y1)/2, -SD/2-0.5, z.color, 0.24);
+  });
+
+  const clg = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,-SD/2-0.5), new THREE.Vector3(0,SH,-SD/2-0.5)]);
+  sc.add(new THREE.Line(clg, new THREE.LineBasicMaterial({ color:0x00d9ce, transparent:true, opacity:0.2 })));
+  for(let i=-2;i<=2;i++) { if(i===0) continue; const x=i*(SW/2); const lg2=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,0,-SD/2-0.5), new THREE.Vector3(x,SH,-SD/2-0.5)]); sc.add(new THREE.Line(lg2, gm)); }
+  for(let z=-SD/2;z<=SD/2;z+=1.5) { const lg3=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-SW-1,0,z), new THREE.Vector3(SW+1,0,z)]); sc.add(new THREE.Line(lg3, gm)); }
+
+  addLabel(sc, 'L', -SW-0.5, -0.3, -SD/2-0.5, '#00d9ce', 0.35);
+  addLabel(sc, 'C', 0, -0.3, -SD/2-0.5, '#00d9ce', 0.25);
+  addLabel(sc, 'R', SW+0.5, -0.3, -SD/2-0.5, '#00d9ce', 0.35);
+  addLabel(sc, 'FRONT', 0, 0.05, SD/2+0.8, '#fbbf24', 0.18);
+  addLabel(sc, 'BACK', 0, 0.05, -SD/2+0.3, '#fbbf24', 0.18);
+}
+
+function addLabel(sc, text, x, y, z, color, scale) {
+  const c=document.createElement('canvas'); c.width=512; c.height=80;
+  const cx=c.getContext('2d'); cx.font='bold 40px Inter,sans-serif'; cx.fillStyle=color; cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText(text,256,40);
+  const t=new THREE.CanvasTexture(c);
+  const m=new THREE.SpriteMaterial({ map:t, transparent:true, opacity:0.85 });
+  const sp=new THREE.Sprite(m); sp.position.set(x,y,z); sp.scale.set(scale*5, scale*0.9, 1); sc.add(sp);
+  return sp;
+}
+
+// ======== BUILD 3D ELEMENTS ========
+function buildMeshes(slot) {
+  const s = slots[slot];
+  if(!s.scene) return;
+  s.groups.forEach(g=>s.scene.remove(g.group));
+  s.groups = [];
+
+  s.elements.forEach((el, i) => {
+    const grp = new THREE.Group();
+    const size = 0.2 + el.vol * 1.1;
+    const x = el.pan * SW;
+    const y = el.freq * SH;
+    const z = (0.5 - el.depth) * SD;
+
+    const geo = new THREE.SphereGeometry(size, 32, 32);
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: new THREE.Color(el.color), metalness:0.05, roughness:0.25,
+      clearcoat:0.6, clearcoatRoughness:0.1,
+      emissive: new THREE.Color(el.color), emissiveIntensity:0.2,
+      transparent:true, opacity:0.92 - el.depth*0.2,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    grp.add(mesh);
+
+    // Ring on floor
+    const ringGeo = new THREE.RingGeometry(size*0.3, size*0.55, 32);
+    const ringMat = new THREE.MeshBasicMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.08, side:THREE.DoubleSide });
+    const ring = new THREE.Mesh(ringGeo, ringMat); ring.rotation.x=-Math.PI/2; ring.position.y=-y+0.01; grp.add(ring);
+
+    // Labels
+    const lbl = addLabel(s.scene, el.name, 0, size+0.35, 0, el.color, 0.26);
+    s.scene.remove(lbl); grp.add(lbl);
+    const hzLabel = freqPosToHz(el.freq);
+    const hzStr = hzLabel>=1000?(hzLabel/1000).toFixed(1)+'kHz':Math.round(hzLabel)+'Hz';
+    const dbLbl = addLabel(s.scene, hzStr, 0, -(size+0.25), 0, '#888', 0.15);
+    s.scene.remove(dbLbl); grp.add(dbLbl);
+
+    // Stem
+    const stGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,-y,0), new THREE.Vector3(0,0,0)]);
+    const stMat = new THREE.LineDashedMaterial({ color:new THREE.Color(el.color), transparent:true, opacity:0.1, dashSize:0.2, gapSize:0.15 });
+    const stem = new THREE.Line(stGeo, stMat); stem.computeLineDistances(); grp.add(stem);
+
+    grp.position.set(x, y, z);
+    grp.visible = el.visible;
+    s.scene.add(grp);
+    s.groups.push({ group:grp, mesh, element:el, elIdx:i });
+  });
+}
+
+// ======== CAMERA ========
+function updateCam(slot) {
+  const s=slots[slot]; if(!s.camera) return;
+  const x=s.camDist*Math.sin(s.camTheta)*Math.cos(s.camPhi);
+  const y=s.camDist*Math.sin(s.camPhi);
+  const z=s.camDist*Math.cos(s.camTheta)*Math.cos(s.camPhi);
+  s.camera.position.set(s.camTarget.x+x, s.camTarget.y+y, s.camTarget.z+z);
+  s.camera.lookAt(s.camTarget);
+}
+function syncSliders(slot) {
+  if(slot!==0) return;
+  $('sliderZoom').value=Math.round(slots[0].camDist);
+  $('sliderElevation').value=Math.round(slots[0].camPhi*180/Math.PI);
+  $('sliderAngle').value=Math.round(slots[0].camTheta*180/Math.PI);
+}
+function setupCamControls(slot) {
+  const canvas=$('scene'+slot), s=slots[slot];
+  canvas.addEventListener('mousedown', e=>{
+    if(e.button===0){s.dragging=true;s.lastX=e.clientX;s.lastY=e.clientY;}
+    if(e.button===2){s.panning=true;s.lastX=e.clientX;s.lastY=e.clientY;}
+  });
+  window.addEventListener('mousemove', e=>{
+    if(s.dragging){s.camTheta-=(e.clientX-s.lastX)*0.005;s.camPhi=Math.max(-0.2,Math.min(Math.PI/2-0.05,s.camPhi+(e.clientY-s.lastY)*0.005));s.lastX=e.clientX;s.lastY=e.clientY;syncSliders(slot);}
+    if(s.panning){const dx=e.clientX-s.lastX,dy=e.clientY-s.lastY;const r=new THREE.Vector3();s.camera.getWorldDirection(r);r.cross(new THREE.Vector3(0,1,0)).normalize();const ps=s.camDist*0.0015;s.camTarget.add(r.multiplyScalar(-dx*ps));s.camTarget.y+=dy*ps;s.lastX=e.clientX;s.lastY=e.clientY;}
+  });
+  window.addEventListener('mouseup', e=>{if(e.button===0)s.dragging=false;if(e.button===2)s.panning=false;});
+  canvas.addEventListener('contextmenu', e=>e.preventDefault());
+  canvas.addEventListener('wheel', e=>{e.preventDefault();s.camDist*=e.deltaY>0?1.08:0.92;s.camDist=Math.max(4,Math.min(40,s.camDist));syncSliders(slot);},{passive:false});
+  canvas.addEventListener('dblclick', ()=>{s.camDist=14;s.camTheta=0;s.camPhi=25*Math.PI/180;s.camTarget.set(0,2.5,0);syncSliders(slot);});
+  canvas.addEventListener('mousemove', e=>{
+    const rect=canvas.getBoundingClientRect();
+    mouse.x=((e.clientX-rect.left)/rect.width)*2-1;
+    mouse.y=-((e.clientY-rect.top)/rect.height)*2+1;
+    $('tooltip').style.left=(e.clientX+16)+'px';
+    $('tooltip').style.top=(e.clientY-16)+'px';
+  });
+  canvas.addEventListener('mouseleave', ()=>{mouse.set(-999,-999);hideTooltip();});
+}
+
+// ======== RENDER LOOP + SPECTRUM ========
+function startRenderLoop(slot) {
+  const s=slots[slot]; if(s.animId) cancelAnimationFrame(s.animId);
+  function render() {
+    s.animId=requestAnimationFrame(render);
+    updateCam(slot);
+    // Raycasting
+    const meshes=s.groups.filter(g=>g.group.visible).map(g=>g.mesh);
+    raycaster.setFromCamera(mouse, s.camera);
+    const hits=raycaster.intersectObjects(meshes);
+    if(s.hovered&&(!hits[0]||hits[0].object!==s.hovered)){
+      const hg=s.groups.find(g=>g.mesh===s.hovered);
+      if(hg) hg.mesh.material.emissiveIntensity=0.2;
+      s.hovered=null; hideTooltip();
+    }
+    if(hits.length>0&&hits[0].object!==s.hovered){
+      s.hovered=hits[0].object;
+      const hg=s.groups.find(g=>g.mesh===s.hovered);
+      if(hg){hg.mesh.material.emissiveIntensity=0.6;showTooltip(hg);}
+    }
+    // Progress
+    if(s.isPlaying&&s.audioBuffer){
+      const elapsed=s.audioCtx.currentTime-s.playStart+s.playOff;
+      $('progressBar'+slot).style.width=Math.min(100,elapsed/s.audioBuffer.duration*100)+'%';
+      if(elapsed>=s.audioBuffer.duration) stopPlay(slot);
+    }
+    // Spectrum
+    if(s.isPlaying && s.analyser) drawSpectrum(slot);
+    s.renderer.render(s.scene, s.camera);
+  }
+  render();
+}
+
+// ======== SPECTRUM ANALYZER ========
+function drawSpectrum(slot) {
+  const s = slots[slot];
+  if(!s.analyser) return;
+  const canvas = $('spectrum'+slot);
+  const wrap = $('canvasWrap'+slot);
+  const w = wrap.clientWidth, h = 80;
+  if(canvas.width !== w || canvas.height !== h) { canvas.width=w; canvas.height=h; }
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, w, h);
+
+  const bufLen = s.analyser.frequencyBinCount;
+  const data = new Uint8Array(bufLen);
+  s.analyser.getByteFrequencyData(data);
+
+  // Draw spectrum bars with frequency zone colors
+  const sr = s.audioCtx.sampleRate;
+  const barCount = Math.min(256, bufLen);
+  const barW = w / barCount;
+
+  for(let i=0; i<barCount; i++) {
+    // Use logarithmic mapping for frequency
+    const logIdx = Math.round(Math.pow(i/barCount, 2) * (bufLen-1));
+    const v = data[logIdx] / 255;
+    const barH = v * h * 0.9;
+
+    // Color based on frequency zone
+    const freq = logIdx * sr / (s.analyser.fftSize);
+    let color = '#34d399';
+    if(freq < 80) color = '#7c5cfc';
+    else if(freq < 300) color = '#a78bfa';
+    else if(freq < 800) color = '#60a5fa';
+    else if(freq < 4000) color = '#34d399';
+    else if(freq < 8000) color = '#fbbf24';
+    else color = '#f87171';
+
+    ctx.fillStyle = color;
+    ctx.globalAlpha = 0.5 + v * 0.5;
+    ctx.fillRect(i*barW, h-barH, barW-1, barH);
+  }
+  ctx.globalAlpha = 1;
+
+  // Stereo indicator
+  if(s.analyserL && s.analyserR) {
+    const dL = new Uint8Array(s.analyserL.frequencyBinCount);
+    const dR = new Uint8Array(s.analyserR.frequencyBinCount);
+    s.analyserL.getByteFrequencyData(dL);
+    s.analyserR.getByteFrequencyData(dR);
+    let sumL=0, sumR=0;
+    for(let i=0;i<dL.length;i++){sumL+=dL[i];sumR+=dR[i];}
+    const balance = sumL+sumR>0 ? (sumR-sumL)/(sumL+sumR) : 0;
+    // Draw balance indicator
+    const cx = w/2 + balance * (w/2) * 0.8;
+    ctx.fillStyle = '#00d9ce';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.arc(cx, 6, 4, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '7px Inter';
+    ctx.textAlign = 'center';
+    ctx.fillText('L', 10, 9);
+    ctx.fillText('R', w-10, 9);
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(w/2, 2, 1, 8);
+    ctx.globalAlpha = 1;
+  }
+}
+
+// ======== TOOLTIP ========
+function showTooltip(g) {
+  const el=g.element, tt=$('tooltip');
+  tt.style.display='block';
+  tt.querySelector('.tt-name').textContent=el.name;
+  tt.querySelector('.tt-name').style.color=el.color;
+  const pan=Math.round(el.pan*100);
+  $('ttVol').textContent=Math.round(el.vol*100)+'%';
+  $('ttPan').textContent=pan<-5?'Gauche '+Math.abs(pan)+'%':pan>5?'Droite '+pan+'%':'Centre';
+  const hz=freqPosToHz(el.freq);
+  $('ttFreq').textContent=(hz>=1000?(hz/1000).toFixed(1)+'k':Math.round(hz))+'Hz';
+  $('ttDepth').textContent=Math.round(el.depth*100)+'%'+(el.depth<0.2?' (Devant)':el.depth>0.5?' (Arriere)':' (Milieu)');
+}
+function hideTooltip(){$('tooltip').style.display='none';}
+
+// ======== PLAYBACK ========
+document.querySelectorAll('.btnPlay').forEach(b=>b.addEventListener('click',()=>startPlay(+b.dataset.slot)));
+document.querySelectorAll('.btnPause').forEach(b=>b.addEventListener('click',()=>stopPlay(+b.dataset.slot)));
+
+function startPlay(slot) {
+  const s=slots[slot]; if(!s.audioBuffer||s.isPlaying) return;
+  s.audioCtx.resume();
+  s.source=s.audioCtx.createBufferSource(); s.source.buffer=s.audioBuffer;
+  s.splitter=s.audioCtx.createChannelSplitter(2);
+  s.analyser=s.audioCtx.createAnalyser(); s.analyser.fftSize=4096; s.analyser.smoothingTimeConstant=0.8;
+  s.analyserL=s.audioCtx.createAnalyser(); s.analyserR=s.audioCtx.createAnalyser();
+  s.analyserL.fftSize=2048; s.analyserR.fftSize=2048;
+  s.source.connect(s.analyser);
+  s.source.connect(s.splitter);
+  s.source.connect(s.audioCtx.destination);
+  s.splitter.connect(s.analyserL, 0); s.splitter.connect(s.analyserR, 1);
+  s.playStart=s.audioCtx.currentTime; s.source.start(0, s.playOff); s.isPlaying=true;
+  s.source.onended=()=>{if(s.isPlaying){s.isPlaying=false;s.playOff=0;$('progressBar'+slot).style.width='0%';}};
+}
+function stopPlay(slot) {
+  const s=slots[slot]; if(!s.isPlaying) return;
+  s.playOff=s.audioCtx.currentTime-s.playStart+s.playOff;
+  if(s.source){s.source.onended=null;s.source.stop();}
+  s.isPlaying=false;
+}
+
+// ======== RESIZE ========
+function onResize(slot) {
+  const s=slots[slot]; if(!s.renderer) return;
+  const w=$('canvasWrap'+slot).clientWidth, h=$('canvasWrap'+slot).clientHeight;
+  s.camera.aspect=w/h; s.camera.updateProjectionMatrix(); s.renderer.setSize(w,h);
+}
+
+// ======== COMPARE MODE ========
+$('btnCompare').addEventListener('click', ()=>{
+  compareMode=!compareMode;
+  $('btnCompare').classList.toggle('active',compareMode);
+  $('app').classList.toggle('compare-mode',compareMode);
+  $('canvasWrap1').style.display=compareMode?'block':'none';
+  $('uploadTabs').style.display=compareMode?'flex':'none';
+  $('dropzone1').style.display=compareMode?'block':'none';
+  setTimeout(()=>{onResize(0);if(compareMode&&slots[1].renderer)onResize(1);},100);
+});
+
+document.querySelectorAll('.upload-tab').forEach(tab=>{
+  tab.addEventListener('click',()=>{
+    activeSlot=+tab.dataset.slot;
+    document.querySelectorAll('.upload-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    selectedElIdx = slots[activeSlot].elements.length>0 ? 0 : -1;
+    refreshElementList();
+  });
+});
+
+// ======== SLIDERS ========
+$('sliderZoom').addEventListener('input',e=>{slots[0].camDist=parseFloat(e.target.value);});
+$('sliderElevation').addEventListener('input',e=>{slots[0].camPhi=parseFloat(e.target.value)*Math.PI/180;});
+$('sliderAngle').addEventListener('input',e=>{slots[0].camTheta=parseFloat(e.target.value)*Math.PI/180;});
+
+// ======== RESET ========
+$('btnReset').addEventListener('click', ()=>{
+  [0,1].forEach(sl=>{
+    const s=slots[sl];
+    if(s.isPlaying) stopPlay(sl);
+    s.audioBuffer=null;s.source=null;s.elements=[];s.playOff=0;
+    if(s.renderer){while(s.scene.children.length>0)s.scene.remove(s.scene.children[0]);s.groups=[];s.renderer.dispose();s.renderer=null;}
+    $('emptyState'+sl).style.display='flex';
+    $('transport'+sl).style.display='none';
+    $('fileName'+sl).textContent='';
+    $('progressBar'+sl).style.width='0%';
+    const c=$('scene'+sl);c.width=0;c.height=0;
+    const sp=$('spectrum'+sl);sp.width=0;sp.height=0;
+  });
+  selectedElIdx=-1;
+  refreshElementList();
+  $('panelAdvisor').style.display='none';
+  $('panelEditor').style.display='none';
+  $('hud0').style.display='none';
+  $('controlsHelp0').style.display='none';
+});
+
+// Init
+refreshElementList();
+
+})();
+
+// ================================================================
+// ======== ACCESS CODE SYSTEM ========
+// ================================================================
+(function(){
+'use strict';
+
+const STORAGE_KEY = 'mixviz3d_license';
+const $g = id => document.getElementById(id);
+
+// 1 code illimite, 1 code 7 jours
+const CODE_UNLIMITED = 'MIXVIZ-PRO-2024';
+const CODE_TRIAL = 'MIXVIZ-DEMO';
+
+function getLicense() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; }
+  catch(e) { return null; }
+}
+
+function setLicense(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch(e) {}
+}
+
+function checkAccess() {
+  const lic = getLicense();
+  if(!lic) return { granted: false };
+
+  if(lic.type === 'unlimited') {
+    return { granted: true, type: 'unlimited' };
+  }
+
+  if(lic.type === 'trial') {
+    const endDate = new Date(lic.endDate);
+    const now = new Date();
+    if(now <= endDate) {
+      const daysLeft = Math.ceil((endDate - now) / (1000*60*60*24));
+      return { granted: true, type: 'trial', daysLeft };
+    } else {
+      return { granted: false, expired: true };
+    }
+  }
+
+  return { granted: false };
+}
+
+function initGate() {
+  const access = checkAccess();
+
+  if(access.granted) {
+    $g('gate').classList.add('hidden');
+    if(access.type === 'trial') {
+      const banner = $g('trialBanner');
+      banner.classList.remove('hidden');
+      $g('trialBannerText').textContent =
+        `Essai : ${access.daysLeft} jour${access.daysLeft>1?'s':''} restant${access.daysLeft>1?'s':''}`;
+      document.getElementById('app').style.marginTop = '24px';
+    }
+    return;
+  }
+
+  if(access.expired) {
+    $g('gateStatus').innerHTML = 'Votre essai a <b style="color:var(--red)">expire</b>.';
+  }
+  $g('gate').classList.remove('hidden');
+}
+
+// Activate button
+$g('gateActivate').addEventListener('click', () => {
+  const code = $g('gateCode').value.trim().toUpperCase();
+  if(!code) { $g('gateError').textContent = 'Veuillez entrer un code.'; return; }
+
+  if(code === CODE_UNLIMITED) {
+    setLicense({ type: 'unlimited', activatedAt: new Date().toISOString() });
+    $g('gate').classList.add('hidden');
+    $g('trialBanner').classList.add('hidden');
+    document.getElementById('app').style.marginTop = '';
+    return;
+  }
+
+  if(code === CODE_TRIAL) {
+    // Check if trial already used and expired
+    const existing = getLicense();
+    if(existing && existing.type === 'trial') {
+      const access = checkAccess();
+      if(!access.granted) {
+        $g('gateError').textContent = 'Votre essai a deja expire.';
+        return;
+      }
+    }
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 7);
+    setLicense({ type: 'trial', startDate: new Date().toISOString(), endDate: endDate.toISOString() });
+    $g('gate').classList.add('hidden');
+    const banner = $g('trialBanner');
+    banner.classList.remove('hidden');
+    $g('trialBannerText').textContent = 'Essai : 7 jours restants';
+    document.getElementById('app').style.marginTop = '24px';
+    return;
+  }
+
+  $g('gateError').textContent = 'Code invalide.';
+});
+
+// Enter key
+$g('gateCode').addEventListener('keydown', e => {
+  if(e.key === 'Enter') $g('gateActivate').click();
+});
+
+// Trial banner upgrade link
+$g('trialUpgrade').addEventListener('click', () => {
+  $g('gate').classList.remove('hidden');
+  $g('gateStatus').innerHTML = 'Entrez le code complet pour un acces illimite.';
+});
+
+initGate();
+})();
+
+// ================================================================
+// ======== PWA - SERVICE WORKER + MANIFEST ========
+// ================================================================
+(function(){
+'use strict';
+
+// Inline manifest
+const manifest = {
+  name: 'Mix Visualizer 3D',
+  short_name: 'MixViz 3D',
+  description: 'Outil pedagogique de visualisation 3D de mix audio',
+  start_url: './mixvisualizer.html',
+  display: 'standalone',
+  background_color: '#08080d',
+  theme_color: '#08080d',
+  orientation: 'any',
+  icons: [
+    {
+      src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSIjMDgwODBkIi8+PGNpcmNsZSBjeD0iNjQiIGN5PSI2NCIgcj0iMzAiIGZpbGw9IiM3YzVjZmMiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNDIiIHI9IjEyIiBmaWxsPSIjZTkxZThjIi8+PGNpcmNsZSBjeD0iNDUiIGN5PSI4MCIgcj0iMTYiIGZpbGw9IiMwMGQ5Y2UiIG9wYWNpdHk9IjAuNyIvPjxjaXJjbGUgY3g9Ijg1IiBjeT0iNzUiIHI9IjEwIiBmaWxsPSIjZmZkNjAwIiBvcGFjaXR5PSIwLjYiLz48L3N2Zz4=',
+      sizes: '128x128',
+      type: 'image/svg+xml',
+      purpose: 'any maskable'
+    }
+  ]
+};
+
+// Create blob manifest and link it
+const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+const manifestUrl = URL.createObjectURL(manifestBlob);
+const manifestLink = document.getElementById('manifestLink');
+if(manifestLink) manifestLink.href = manifestUrl;
+
+// Register service worker (inline via blob)
+const swCode = `
+const CACHE_NAME = 'mixviz3d-v1';
+const ASSETS = ['./', './mixvisualizer.html'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+  );
+});
+`;
+
+if('serviceWorker' in navigator) {
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { scope: './' }).catch(() => {
+    // Blob SW may not work in all browsers, fallback silently
+  });
+}
+
+// Install prompt
+let deferredPrompt = null;
+const installBanner = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+const installClose = document.getElementById('installClose');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner after 3 seconds
+  setTimeout(() => {
+    if(installBanner && !localStorage.getItem('mixviz3d_install_dismissed')) {
+      installBanner.classList.remove('hidden');
+    }
+  }, 3000);
+});
+
+if(installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if(deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBanner.classList.add('hidden');
+    }
+  });
+}
+
+if(installClose) {
+  installClose.addEventListener('click', () => {
+    installBanner.classList.add('hidden');
+    localStorage.setItem('mixviz3d_install_dismissed', '1');
+  });
+}
+
+// Check if already installed
+if(window.matchMedia('(display-mode: standalone)').matches) {
+  if(installBanner) installBanner.classList.add('hidden');
+}
+
+})();
+</script>
+</body>
+</html>
