@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Mix Visualizer 3D - Studio</title>
+<meta name="description" content="Mix Visualizer 3D - Outil pedagogique pour visualiser et ameliorer vos mix audio">
+<meta name="theme-color" content="#08080d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MixViz 3D">
+<link rel="manifest" id="manifestLink">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSIjMDgwODBkIi8+PGNpcmNsZSBjeD0iNjQiIGN5PSI2NCIgcj0iMzAiIGZpbGw9IiM3YzVjZmMiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNDIiIHI9IjEyIiBmaWxsPSIjZTkxZThjIi8+PGNpcmNsZSBjeD0iNDUiIGN5PSI4MCIgcj0iMTYiIGZpbGw9IiMwMGQ5Y2UiIG9wYWNpdHk9IjAuNyIvPjxjaXJjbGUgY3g9Ijg1IiBjeT0iNzUiIHI9IjEwIiBmaWxsPSIjZmZkNjAwIiBvcGFjaXR5PSIwLjYiLz48L3N2Zz4=">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -141,9 +148,71 @@
   .slider-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:10px; height:10px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--surface); }
 
   @media (max-width:900px) { #app,#app.compare-mode { grid-template-columns:1fr; } #sidebar { display:none; } }
+
+  /* ======== ACCESS GATE ======== */
+  #gate { position:fixed; inset:0; z-index:9999; background:var(--bg); display:flex; align-items:center; justify-content:center; }
+  #gate.hidden { display:none; }
+  .gate-card { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:40px 36px; max-width:400px; width:90%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.5); }
+  .gate-logo { font-size:28px; font-weight:800; margin-bottom:6px; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+  .gate-sub { font-size:12px; color:var(--text-dim); margin-bottom:28px; }
+  .gate-input { width:100%; padding:12px 16px; background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--text); font-family:inherit; font-size:15px; text-align:center; letter-spacing:2px; margin-bottom:12px; transition:border-color .2s; }
+  .gate-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 12px rgba(0,217,206,0.15); }
+  .gate-input::placeholder { letter-spacing:0; color:var(--text-dim); opacity:0.5; }
+  .gate-btn { width:100%; padding:12px; border:none; border-radius:8px; font-family:inherit; font-size:14px; font-weight:600; cursor:pointer; transition:all .2s; margin-bottom:8px; }
+  .gate-btn-primary { background:var(--accent); color:#000; }
+  .gate-btn-primary:hover { background:#00f0e4; }
+  .gate-btn-trial { background:var(--surface2); color:var(--text); border:1px solid var(--border); }
+  .gate-btn-trial:hover { border-color:var(--accent); background:var(--surface3); }
+  .gate-error { color:var(--red); font-size:11px; min-height:16px; margin-bottom:8px; }
+  .gate-status { font-size:10px; color:var(--text-dim); margin-top:12px; }
+  .gate-status b { color:var(--accent); }
+  .gate-divider { display:flex; align-items:center; gap:12px; margin:16px 0; font-size:10px; color:var(--text-dim); }
+  .gate-divider::before,.gate-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  /* Trial banner */
+  .trial-banner { position:fixed; top:0; left:0; right:0; z-index:9998; background:linear-gradient(90deg,var(--accent2),var(--accent3)); color:#fff; font-size:11px; font-weight:600; text-align:center; padding:4px 12px; }
+  .trial-banner.hidden { display:none; }
+  .trial-banner a { color:#fff; text-decoration:underline; margin-left:8px; cursor:pointer; }
+
+  /* Install banner */
+  .install-banner { position:fixed; bottom:16px; right:16px; z-index:9000; background:var(--surface); border:1px solid var(--accent); border-radius:12px; padding:12px 16px; display:flex; align-items:center; gap:10px; box-shadow:0 8px 32px rgba(0,0,0,0.5); max-width:320px; }
+  .install-banner.hidden { display:none; }
+  .install-banner-text { font-size:11px; color:var(--text-dim); flex:1; }
+  .install-banner-text b { color:var(--text); display:block; font-size:12px; margin-bottom:2px; }
+  .install-banner-btn { padding:6px 14px; border-radius:6px; border:none; background:var(--accent); color:#000; font-family:inherit; font-size:11px; font-weight:600; cursor:pointer; white-space:nowrap; }
+  .install-banner-btn:hover { background:#00f0e4; }
+  .install-banner-close { background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:16px; padding:4px; }
 </style>
 </head>
 <body>
+
+<!-- ACCESS GATE -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="gate-logo">Mix Visualizer 3D</div>
+    <div class="gate-sub">Outil pedagogique de visualisation de mix audio</div>
+    <input type="text" class="gate-input" id="gateCode" placeholder="Entrez votre code d'acces" maxlength="20" autocomplete="off" spellcheck="false">
+    <div class="gate-error" id="gateError"></div>
+    <button class="gate-btn gate-btn-primary" id="gateActivate">Activer</button>
+    <div class="gate-divider">ou</div>
+    <button class="gate-btn gate-btn-trial" id="gateTrial">Essai gratuit 7 jours</button>
+    <div class="gate-status" id="gateStatus"></div>
+  </div>
+</div>
+
+<!-- TRIAL BANNER -->
+<div class="trial-banner hidden" id="trialBanner">
+  <span id="trialBannerText"></span>
+  <a id="trialUpgrade">Entrer un code</a>
+</div>
+
+<!-- INSTALL BANNER -->
+<div class="install-banner hidden" id="installBanner">
+  <div class="install-banner-text"><b>Installer l'application</b>Utilisez Mix Visualizer 3D comme une app native</div>
+  <button class="install-banner-btn" id="installBtn">Installer</button>
+  <button class="install-banner-close" id="installClose">&times;</button>
+</div>
+
 <div id="app">
   <div id="topbar">
     <div class="logo">
@@ -1057,6 +1126,275 @@ $('btnReset').addEventListener('click', ()=>{
 
 // Init
 refreshElementList();
+
+})();
+
+// ================================================================
+// ======== ACCESS CODE SYSTEM ========
+// ================================================================
+(function(){
+'use strict';
+
+const STORAGE_KEY = 'mixviz3d_license';
+const $g = id => document.getElementById(id);
+
+// MIP codes = unlimited access (hashed for basic obfuscation)
+// Real codes: MIP-MIXVIZ-2024, MIP-STUDIO-PRO, MIP-TEACHER-EDU
+const MIP_HASHES = [
+  hashCode('MIP-MIXVIZ-2024'),
+  hashCode('MIP-STUDIO-PRO'),
+  hashCode('MIP-TEACHER-EDU'),
+  hashCode('MIP-AUDIO-MASTER'),
+  hashCode('MIP-PROD-MUSIC'),
+];
+
+// Trial codes = 7 days (any code starting with "TRIAL-" or "ESSAI-")
+function isTrialCode(code) {
+  const upper = code.toUpperCase().trim();
+  return upper.startsWith('TRIAL-') || upper.startsWith('ESSAI-');
+}
+
+function isMIPCode(code) {
+  const h = hashCode(code.toUpperCase().trim());
+  return MIP_HASHES.includes(h);
+}
+
+function hashCode(str) {
+  let hash = 0;
+  for(let i = 0; i < str.length; i++) {
+    const c = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + c;
+    hash |= 0;
+  }
+  return hash;
+}
+
+function getLicense() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || null; }
+  catch(e) { return null; }
+}
+
+function setLicense(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+  catch(e) {}
+}
+
+function checkAccess() {
+  const lic = getLicense();
+  if(!lic) return { granted: false };
+
+  if(lic.type === 'mip') {
+    return { granted: true, type: 'mip' };
+  }
+
+  if(lic.type === 'trial') {
+    const endDate = new Date(lic.endDate);
+    const now = new Date();
+    if(now <= endDate) {
+      const daysLeft = Math.ceil((endDate - now) / (1000*60*60*24));
+      return { granted: true, type: 'trial', daysLeft };
+    } else {
+      return { granted: false, expired: true };
+    }
+  }
+
+  return { granted: false };
+}
+
+function initGate() {
+  const access = checkAccess();
+
+  if(access.granted) {
+    $g('gate').classList.add('hidden');
+
+    if(access.type === 'trial') {
+      const banner = $g('trialBanner');
+      banner.classList.remove('hidden');
+      $g('trialBannerText').textContent =
+        `Essai gratuit : ${access.daysLeft} jour${access.daysLeft>1?'s':''} restant${access.daysLeft>1?'s':''}`;
+      // Shift app down for banner
+      document.getElementById('app').style.marginTop = '24px';
+    }
+    return;
+  }
+
+  if(access.expired) {
+    $g('gateStatus').innerHTML = 'Votre essai a <b style="color:var(--red)">expire</b>. Entrez un code MIP pour un acces illimite.';
+  }
+
+  $g('gate').classList.remove('hidden');
+}
+
+// Activate button
+$g('gateActivate').addEventListener('click', () => {
+  const code = $g('gateCode').value.trim();
+  if(!code) { $g('gateError').textContent = 'Veuillez entrer un code.'; return; }
+
+  if(isMIPCode(code)) {
+    setLicense({ type: 'mip', code: code.toUpperCase(), activatedAt: new Date().toISOString() });
+    $g('gateError').textContent = '';
+    $g('gate').classList.add('hidden');
+    $g('trialBanner').classList.add('hidden');
+    document.getElementById('app').style.marginTop = '';
+    return;
+  }
+
+  if(isTrialCode(code)) {
+    const endDate = new Date();
+    endDate.setDate(endDate.getDate() + 7);
+    setLicense({ type: 'trial', code: code.toUpperCase(), startDate: new Date().toISOString(), endDate: endDate.toISOString() });
+    $g('gateError').textContent = '';
+    $g('gate').classList.add('hidden');
+    const banner = $g('trialBanner');
+    banner.classList.remove('hidden');
+    $g('trialBannerText').textContent = 'Essai gratuit : 7 jours restants';
+    document.getElementById('app').style.marginTop = '24px';
+    return;
+  }
+
+  $g('gateError').textContent = 'Code invalide. Utilisez un code MIP ou un code TRIAL-xxx / ESSAI-xxx.';
+});
+
+// Trial button (no code needed)
+$g('gateTrial').addEventListener('click', () => {
+  const existing = getLicense();
+  if(existing && existing.type === 'trial') {
+    const access = checkAccess();
+    if(!access.granted) {
+      $g('gateError').textContent = 'Votre essai gratuit a deja expire. Entrez un code MIP.';
+      return;
+    }
+  }
+
+  const endDate = new Date();
+  endDate.setDate(endDate.getDate() + 7);
+  setLicense({ type: 'trial', code: 'FREE-TRIAL', startDate: new Date().toISOString(), endDate: endDate.toISOString() });
+  $g('gate').classList.add('hidden');
+  const banner = $g('trialBanner');
+  banner.classList.remove('hidden');
+  $g('trialBannerText').textContent = 'Essai gratuit : 7 jours restants';
+  document.getElementById('app').style.marginTop = '24px';
+});
+
+// Enter key on input
+$g('gateCode').addEventListener('keydown', e => {
+  if(e.key === 'Enter') $g('gateActivate').click();
+});
+
+// Trial banner upgrade link
+$g('trialUpgrade').addEventListener('click', () => {
+  $g('gate').classList.remove('hidden');
+  $g('gateStatus').innerHTML = 'Entrez un code <b>MIP</b> pour un acces illimite.';
+});
+
+// Init
+initGate();
+
+})();
+
+// ================================================================
+// ======== PWA - SERVICE WORKER + MANIFEST ========
+// ================================================================
+(function(){
+'use strict';
+
+// Inline manifest
+const manifest = {
+  name: 'Mix Visualizer 3D',
+  short_name: 'MixViz 3D',
+  description: 'Outil pedagogique de visualisation 3D de mix audio',
+  start_url: './mixvisualizer.html',
+  display: 'standalone',
+  background_color: '#08080d',
+  theme_color: '#08080d',
+  orientation: 'any',
+  icons: [
+    {
+      src: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjggMTI4Ij48cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjEyOCIgcng9IjI0IiBmaWxsPSIjMDgwODBkIi8+PGNpcmNsZSBjeD0iNjQiIGN5PSI2NCIgcj0iMzAiIGZpbGw9IiM3YzVjZmMiIG9wYWNpdHk9IjAuOCIvPjxjaXJjbGUgY3g9IjY0IiBjeT0iNDIiIHI9IjEyIiBmaWxsPSIjZTkxZThjIi8+PGNpcmNsZSBjeD0iNDUiIGN5PSI4MCIgcj0iMTYiIGZpbGw9IiMwMGQ5Y2UiIG9wYWNpdHk9IjAuNyIvPjxjaXJjbGUgY3g9Ijg1IiBjeT0iNzUiIHI9IjEwIiBmaWxsPSIjZmZkNjAwIiBvcGFjaXR5PSIwLjYiLz48L3N2Zz4=',
+      sizes: '128x128',
+      type: 'image/svg+xml',
+      purpose: 'any maskable'
+    }
+  ]
+};
+
+// Create blob manifest and link it
+const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
+const manifestUrl = URL.createObjectURL(manifestBlob);
+const manifestLink = document.getElementById('manifestLink');
+if(manifestLink) manifestLink.href = manifestUrl;
+
+// Register service worker (inline via blob)
+const swCode = `
+const CACHE_NAME = 'mixviz3d-v1';
+const ASSETS = ['./', './mixvisualizer.html'];
+
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(ASSETS)));
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
+  ));
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    caches.match(e.request).then(cached => cached || fetch(e.request).catch(() => cached))
+  );
+});
+`;
+
+if('serviceWorker' in navigator) {
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swUrl = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swUrl, { scope: './' }).catch(() => {
+    // Blob SW may not work in all browsers, fallback silently
+  });
+}
+
+// Install prompt
+let deferredPrompt = null;
+const installBanner = document.getElementById('installBanner');
+const installBtn = document.getElementById('installBtn');
+const installClose = document.getElementById('installClose');
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show install banner after 3 seconds
+  setTimeout(() => {
+    if(installBanner && !localStorage.getItem('mixviz3d_install_dismissed')) {
+      installBanner.classList.remove('hidden');
+    }
+  }, 3000);
+});
+
+if(installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if(deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      deferredPrompt = null;
+      installBanner.classList.add('hidden');
+    }
+  });
+}
+
+if(installClose) {
+  installClose.addEventListener('click', () => {
+    installBanner.classList.add('hidden');
+    localStorage.setItem('mixviz3d_install_dismissed', '1');
+  });
+}
+
+// Check if already installed
+if(window.matchMedia('(display-mode: standalone)').matches) {
+  if(installBanner) installBanner.classList.add('hidden');
+}
 
 })();
 </script>
