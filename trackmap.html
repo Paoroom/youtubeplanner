@@ -1971,18 +1971,51 @@
       // Keyboard: Delete/Backspace, Cmd+D duplicate, Cmd+Z undo, Shift+Cmd+Z redo
       useEffect(() => {
         function handleKeyDown(e) {
-          // Undo/redo works even in inputs
-          if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+          const key = e.key.toLowerCase();
+          const mod = e.metaKey || e.ctrlKey;
+          const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
+
+          // Undo/redo — works everywhere
+          if (key === 'z' && mod && !e.shiftKey) {
             e.preventDefault();
             undo();
             return;
           }
-          if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+          if (key === 'z' && mod && e.shiftKey) {
             e.preventDefault();
             redo();
             return;
           }
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+
+          // Cmd+D duplicate — works everywhere (even in note input)
+          if (key === 'd' && mod) {
+            e.preventDefault();
+            if (selectedBlockId) {
+              duplicateBlock(selectedBlockId);
+            } else if (selectedNoteId) {
+              duplicateNote(selectedNoteId);
+            } else if (selectedSectionIdx !== null) {
+              duplicateSection(selectedSectionIdx);
+            }
+            return;
+          }
+
+          // Escape — exit editing / deselect
+          if (e.key === 'Escape') {
+            if (editingNoteId) {
+              setEditingNoteId(null);
+            } else {
+              setSelectedBlockId(null);
+              setSelectedNoteId(null);
+              setSelectedSectionIdx(null);
+              setEditingSectionIdx(null);
+            }
+            return;
+          }
+
+          // Below this: skip if focus is in a text input
+          if (inInput) return;
+
           if (e.key === ' ') {
             e.preventDefault();
             togglePlay();
@@ -2003,26 +2036,10 @@
             deleteSection(selectedSectionIdx);
             setSelectedSectionIdx(null);
           }
-          if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
-            e.preventDefault();
-            if (selectedBlockId) {
-              duplicateBlock(selectedBlockId);
-            } else if (selectedNoteId) {
-              duplicateNote(selectedNoteId);
-            } else if (selectedSectionIdx !== null) {
-              duplicateSection(selectedSectionIdx);
-            }
-          }
-          if (e.key === 'Escape') {
-            setSelectedBlockId(null);
-            setSelectedNoteId(null);
-            setSelectedSectionIdx(null);
-            setEditingSectionIdx(null);
-          }
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockId, selectedNoteId, selectedSectionIdx, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
+      }, [selectedBlockId, selectedNoteId, selectedSectionIdx, editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
 
       // Deselect block when clicking on empty area
       function handleTimelineClick(e) {
@@ -3117,11 +3134,13 @@
                         onClick={e => {
                           e.stopPropagation();
                           setSelectedNoteId(note.id);
-                          setEditingNoteId(note.id);
                           setSelectedBlockId(null);
                           setSelectedSectionIdx(null);
                         }}
-                        onDoubleClick={e => { e.stopPropagation(); deleteNote(note.id); }}
+                        onDoubleClick={e => {
+                          e.stopPropagation();
+                          setEditingNoteId(note.id);
+                        }}
                       >
                         <div className="note-resize-handle left" onMouseDown={e => handleNoteResize(e, note.id, 'left')}></div>
                         {editingNoteId === note.id ? (
@@ -3132,16 +3151,16 @@
                             onChange={e => updateNoteText(note.id, e.target.value)}
                             onKeyDown={e => {
                               if (e.key === 'Enter') setEditingNoteId(null);
-                              if (e.key === 'Escape') setEditingNoteId(null);
-                              if (e.key === 'Delete' && !note.text) { e.preventDefault(); deleteNote(note.id); }
+                              if (e.key === 'Escape') { e.stopPropagation(); setEditingNoteId(null); }
                             }}
                             onBlur={() => setEditingNoteId(null)}
                             onClick={e => e.stopPropagation()}
+                            onMouseDown={e => e.stopPropagation()}
                             placeholder="Écrire une note..."
                           />
                         ) : (
                           <span
-                            style={{ cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none' }}
+                            style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none' }}
                           >
                             {note.text || '...'}
                           </span>
