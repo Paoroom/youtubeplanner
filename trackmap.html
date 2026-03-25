@@ -1316,6 +1316,7 @@
       const [renameElValue, setRenameElValue] = useState('');
       const [selectedNoteIds, setSelectedNoteIds] = useState([]);
       const [selectedSectionIdxs, setSelectedSectionIdxs] = useState([]);
+      const [selectionRect, setSelectionRect] = useState(null); // {x, y, w, h} for drag rectangle
 
       // ── Undo / Redo system ──
       const undoStackRef = useRef([]);
@@ -1964,9 +1965,26 @@
         setSelectedSectionIdxs([newIdx]);
       }
 
-      // Keyboard: Delete/Backspace, Cmd+D duplicate, Cmd+Z undo, Shift+Cmd+Z redo
+      // ── Ref-based keyboard handler (avoids stale closures) ──
+      const kbStateRef = useRef({});
+      kbStateRef.current = {
+        selectedBlockIds, selectedNoteIds, selectedSectionIdxs,
+        editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks,
+        isPlaying, audioBuffer, pxPerSecond,
+      };
+
+      const kbActionsRef = useRef({});
+      kbActionsRef.current = {
+        undo, redo, pushUndo, duplicateBlock, duplicateNote, duplicateSection,
+        deleteSection, togglePlay, captureSnapshot,
+        setBlocks, setNotes, setSelectedBlockIds, setSelectedNoteIds,
+        setSelectedSectionIdxs, setEditingNoteId, setEditingSectionIdx,
+      };
+
       useEffect(() => {
         function handleKeyDown(e) {
+          const s = kbStateRef.current;
+          const a = kbActionsRef.current;
           const key = e.key.toLowerCase();
           const mod = e.metaKey || e.ctrlKey;
           const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
@@ -1974,49 +1992,50 @@
           // Undo/redo — works everywhere
           if (key === 'z' && mod && !e.shiftKey) {
             e.preventDefault();
-            undo();
+            a.undo();
             return;
           }
           if (key === 'z' && mod && e.shiftKey) {
             e.preventDefault();
-            redo();
+            a.redo();
             return;
           }
 
-          // Cmd+D duplicate — works everywhere (even in note input)
+          // Cmd+D duplicate — works everywhere
           if (key === 'd' && mod) {
             e.preventDefault();
-            if (selectedBlockIds.length > 0) {
-              pushUndo();
+            if (s.selectedBlockIds.length > 0) {
+              a.pushUndo();
               const newIds = [];
-              selectedBlockIds.forEach(bid => {
-                const nid = duplicateBlock(bid);
+              s.selectedBlockIds.forEach(bid => {
+                const nid = a.duplicateBlock(bid);
                 if (nid) newIds.push(nid);
               });
-              setSelectedBlockIds(newIds);
-            } else if (selectedNoteIds.length > 0) {
-              pushUndo();
+              a.setSelectedBlockIds(newIds);
+            } else if (s.selectedNoteIds.length > 0) {
+              a.pushUndo();
               const newIds = [];
-              selectedNoteIds.forEach(nid => {
-                const newId = duplicateNote(nid);
+              s.selectedNoteIds.forEach(nid => {
+                const newId = a.duplicateNote(nid);
                 if (newId) newIds.push(newId);
               });
-              setSelectedNoteIds(newIds);
-            } else if (selectedSectionIdxs.length > 0) {
-              selectedSectionIdxs.forEach(idx => duplicateSection(idx));
+              a.setSelectedNoteIds(newIds);
+            } else if (s.selectedSectionIdxs.length > 0) {
+              a.pushUndo();
+              s.selectedSectionIdxs.forEach(idx => a.duplicateSection(idx));
             }
             return;
           }
 
           // Escape — exit editing / deselect
           if (e.key === 'Escape') {
-            if (editingNoteId) {
-              setEditingNoteId(null);
+            if (s.editingNoteId) {
+              a.setEditingNoteId(null);
             } else {
-              setSelectedBlockIds([]);
-              setSelectedNoteIds([]);
-              setSelectedSectionIdxs([]);
-              setEditingSectionIdx(null);
+              a.setSelectedBlockIds([]);
+              a.setSelectedNoteIds([]);
+              a.setSelectedSectionIdxs([]);
+              a.setEditingSectionIdx(null);
             }
             return;
           }
@@ -2026,41 +2045,165 @@
 
           if (e.key === ' ') {
             e.preventDefault();
-            togglePlay();
+            a.togglePlay();
             return;
           }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockIds.length > 0) {
-            e.preventDefault();
-            pushUndo();
-            setBlocks(prev => prev.filter(b => !selectedBlockIds.includes(b.id)));
-            setSelectedBlockIds([]);
-          }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteIds.length > 0) {
-            e.preventDefault();
-            pushUndo();
-            setNotes(prev => prev.filter(n => !selectedNoteIds.includes(n.id)));
-            setSelectedNoteIds([]);
-            setEditingNoteId(null);
-          }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSectionIdxs.length > 0) {
-            e.preventDefault();
-            pushUndo();
-            // Delete from highest index to lowest to avoid index shift
-            const sorted = [...selectedSectionIdxs].sort((a, b) => b - a);
-            sorted.forEach(idx => deleteSection(idx));
-            setSelectedSectionIdxs([]);
+          if (e.key === 'Delete' || e.key === 'Backspace') {
+            if (s.selectedBlockIds.length > 0) {
+              e.preventDefault();
+              a.pushUndo();
+              a.setBlocks(prev => prev.filter(b => !s.selectedBlockIds.includes(b.id)));
+              a.setSelectedBlockIds([]);
+            }
+            if (s.selectedNoteIds.length > 0) {
+              e.preventDefault();
+              a.pushUndo();
+              a.setNotes(prev => prev.filter(n => !s.selectedNoteIds.includes(n.id)));
+              a.setSelectedNoteIds([]);
+              a.setEditingNoteId(null);
+            }
+            if (s.selectedSectionIdxs.length > 0) {
+              e.preventDefault();
+              a.pushUndo();
+              const sorted = [...s.selectedSectionIdxs].sort((a, b) => b - a);
+              sorted.forEach(idx => a.deleteSection(idx));
+              a.setSelectedSectionIdxs([]);
+            }
           }
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockIds, selectedNoteIds, selectedSectionIdxs, editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
+      }, []); // Empty deps — uses refs for always-fresh values
 
-      // Deselect block when clicking on empty area
-      function handleTimelineClick(e) {
-        if (e.target.closest('.block') || e.target.closest('.section-marker') || e.target.closest('.note-marker')) return;
-        setSelectedBlockIds([]);
-        setSelectedNoteIds([]);
-        setSelectedSectionIdxs([]);
+      // ── Rectangle drag selection ──
+      function handleTimelineMouseDown(e) {
+        // Only start selection on empty area (not on blocks, notes, sections, etc.)
+        if (e.target.closest('.block') || e.target.closest('.section-marker') ||
+            e.target.closest('.note-marker') || e.target.closest('.energy-point') ||
+            e.target.closest('.note-resize-handle') || e.target.closest('.resize-handle') ||
+            e.target.closest('.section-resize-handle') || e.target.closest('button') ||
+            e.target.closest('input') || e.target.closest('.notes-label') ||
+            e.target.closest('.track-label') || e.target.closest('.waveform-container') ||
+            e.button !== 0) return;
+
+        const container = timelineRef.current;
+        if (!container) return;
+        const containerRect = container.getBoundingClientRect();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const scrollLeft = container.scrollLeft;
+        const scrollTop = container.scrollTop;
+        let moved = false;
+
+        function onMove(ev) {
+          const dx = Math.abs(ev.clientX - startX);
+          const dy = Math.abs(ev.clientY - startY);
+          if (!moved && dx < 5 && dy < 5) return; // deadzone
+          moved = true;
+
+          const curScrollLeft = container.scrollLeft;
+          const curScrollTop = container.scrollTop;
+
+          // Positions relative to the timeline-wrapper (scrollable content)
+          const x1 = startX - containerRect.left + scrollLeft;
+          const y1 = startY - containerRect.top + scrollTop;
+          const x2 = ev.clientX - containerRect.left + curScrollLeft;
+          const y2 = ev.clientY - containerRect.top + curScrollTop;
+
+          const rx = Math.min(x1, x2);
+          const ry = Math.min(y1, y2);
+          const rw = Math.abs(x2 - x1);
+          const rh = Math.abs(y2 - y1);
+          setSelectionRect({ x: rx, y: ry, w: rw, h: rh });
+        }
+
+        function onUp(ev) {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+
+          if (!moved) {
+            // Simple click on empty area = deselect
+            setSelectedBlockIds([]);
+            setSelectedNoteIds([]);
+            setSelectedSectionIdxs([]);
+            setSelectionRect(null);
+            return;
+          }
+
+          const curScrollLeft = container.scrollLeft;
+          const curScrollTop = container.scrollTop;
+          const x1 = startX - containerRect.left + scrollLeft;
+          const y1 = startY - containerRect.top + scrollTop;
+          const x2 = ev.clientX - containerRect.left + curScrollLeft;
+          const y2 = ev.clientY - containerRect.top + curScrollTop;
+          const rx = Math.min(x1, x2);
+          const ry = Math.min(y1, y2);
+          const rw = Math.abs(x2 - x1);
+          const rh = Math.abs(y2 - y1);
+
+          // Find all elements that intersect the rectangle
+          const wrapper = container.querySelector('.timeline-wrapper');
+          if (!wrapper) { setSelectionRect(null); return; }
+
+          const newBlockIds = [];
+          const newNoteIds = [];
+          const newSectionIdxs = [];
+
+          // Check blocks
+          wrapper.querySelectorAll('.block').forEach(el => {
+            const r = el.getBoundingClientRect();
+            const bx = r.left - containerRect.left + container.scrollLeft;
+            const by = r.top - containerRect.top + container.scrollTop;
+            const bw = r.width;
+            const bh = r.height;
+            if (bx < rx + rw && bx + bw > rx && by < ry + rh && by + bh > ry) {
+              const bid = el.getAttribute('data-block-id');
+              if (bid) newBlockIds.push(bid);
+            }
+          });
+
+          // Check notes
+          wrapper.querySelectorAll('.note-marker').forEach(el => {
+            const r = el.getBoundingClientRect();
+            const bx = r.left - containerRect.left + container.scrollLeft;
+            const by = r.top - containerRect.top + container.scrollTop;
+            const bw = r.width;
+            const bh = r.height;
+            if (bx < rx + rw && bx + bw > rx && by < ry + rh && by + bh > ry) {
+              const nid = el.getAttribute('data-note-id');
+              if (nid) newNoteIds.push(nid);
+            }
+          });
+
+          // Check sections
+          wrapper.querySelectorAll('.section-marker').forEach(el => {
+            const r = el.getBoundingClientRect();
+            const bx = r.left - containerRect.left + container.scrollLeft;
+            const by = r.top - containerRect.top + container.scrollTop;
+            const bw = r.width;
+            const bh = r.height;
+            if (bx < rx + rw && bx + bw > rx && by < ry + rh && by + bh > ry) {
+              const sidx = el.getAttribute('data-section-idx');
+              if (sidx !== null) newSectionIdxs.push(parseInt(sidx));
+            }
+          });
+
+          if (ev.shiftKey || ev.metaKey || ev.ctrlKey) {
+            // Add to existing selection
+            setSelectedBlockIds(prev => [...new Set([...prev, ...newBlockIds])]);
+            setSelectedNoteIds(prev => [...new Set([...prev, ...newNoteIds])]);
+            setSelectedSectionIdxs(prev => [...new Set([...prev, ...newSectionIdxs])]);
+          } else {
+            setSelectedBlockIds(newBlockIds);
+            setSelectedNoteIds(newNoteIds);
+            setSelectedSectionIdxs(newSectionIdxs);
+          }
+
+          setSelectionRect(null);
+        }
+
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
       }
 
       // Load template
@@ -2940,15 +3083,31 @@
             onDragLeave={handleTimelineDragLeave}
             onDrop={handleTimelineDrop}
             style={{ flex: 1, minHeight: 0, overflow: 'auto' }}
-            onClick={handleTimelineClick}
+            onMouseDown={handleTimelineMouseDown}
           >
-            <div className="timeline-wrapper" style={{ width: totalWidth + 130 }}>
+            <div className="timeline-wrapper" style={{ width: totalWidth + 130, position: 'relative' }}>
+              {/* Selection rectangle overlay */}
+              {selectionRect && (
+                <div style={{
+                  position: 'absolute',
+                  left: selectionRect.x,
+                  top: selectionRect.y,
+                  width: selectionRect.w,
+                  height: selectionRect.h,
+                  background: 'rgba(0, 217, 206, 0.08)',
+                  border: '1px solid rgba(0, 217, 206, 0.5)',
+                  borderRadius: 2,
+                  zIndex: 50,
+                  pointerEvents: 'none',
+                }} />
+              )}
               {/* Section markers */}
               <div className="section-markers" style={{ width: totalWidth }}>
                 {sectionMarkers.map((sec, i) => (
                   <div
                     key={i}
                     className={`section-marker ${selectedSectionIdxs.includes(i) ? 'selected' : ''}`}
+                    data-section-idx={i}
                     style={{
                       left: sec.startTime * pxPerSecond,
                       width: Math.max(30, sec.duration * pxPerSecond - 2),
@@ -3077,6 +3236,7 @@
                             <div
                               key={block.id}
                               className={`block ${selectedBlockIds.includes(block.id) ? 'selected' : ''}`}
+                              data-block-id={block.id}
                               style={{
                                 left: block.startTime * pxPerSecond,
                                 width: block.duration * pxPerSecond,
@@ -3150,7 +3310,7 @@
                       title="Ajouter une note"
                     >+</button>
                   </div>
-                  <div className="notes-lane" style={{ width: totalWidth }} onClick={e => {
+                  <div className="notes-lane" style={{ width: totalWidth }} onDoubleClick={e => {
                     if (e.target.closest('.note-marker')) return;
                     const rect = e.currentTarget.getBoundingClientRect();
                     const x = e.clientX - rect.left + (timelineRef.current ? timelineRef.current.scrollLeft : 0);
@@ -3161,6 +3321,7 @@
                       <div
                         key={note.id}
                         className={`note-marker ${selectedNoteIds.includes(note.id) ? 'selected' : ''}`}
+                        data-note-id={note.id}
                         style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
                         onMouseDown={e => handleNoteMove(e, note.id)}
                         onClick={e => {
