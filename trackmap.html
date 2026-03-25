@@ -1283,7 +1283,7 @@
       const timelineRef = useRef(null);
       const energyCanvasRef = useRef(null);
       const [dropTarget, setDropTarget] = useState(false);
-      const [selectedBlockId, setSelectedBlockId] = useState(null);
+      const [selectedBlockIds, setSelectedBlockIds] = useState([]);
       const [editingSectionIdx, setEditingSectionIdx] = useState(null);
       const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
       const [elements, setElements] = useState(ELEMENTS);
@@ -1314,8 +1314,8 @@
       const [presetName, setPresetName] = useState('');
       const [renamingElIdx, setRenamingElIdx] = useState(null);
       const [renameElValue, setRenameElValue] = useState('');
-      const [selectedNoteId, setSelectedNoteId] = useState(null);
-      const [selectedSectionIdx, setSelectedSectionIdx] = useState(null);
+      const [selectedNoteIds, setSelectedNoteIds] = useState([]);
+      const [selectedSectionIdxs, setSelectedSectionIdxs] = useState([]);
 
       // ── Undo / Redo system ──
       const undoStackRef = useRef([]);
@@ -1641,7 +1641,7 @@
         setSectionMarkers([]);
         setEnergyPoints([]);
         setNotes([]);
-        setSelectedBlockId(null);
+        setSelectedBlockIds([]);
         setPlayheadTime(0);
         setAudioName(file.name);
         const reader = new FileReader();
@@ -1834,7 +1834,7 @@
           text: '',
         }]);
         setEditingNoteId(newId);
-        setSelectedNoteId(newId);
+        setSelectedNoteIds([newId]);
       }
 
       function updateNoteText(id, text) {
@@ -1842,10 +1842,9 @@
       }
 
       function deleteNote(id) {
-        pushUndo();
         setNotes(prev => prev.filter(n => n.id !== id));
         setEditingNoteId(null);
-        setSelectedNoteId(null);
+        setSelectedNoteIds(prev => prev.filter(sid => sid !== id));
       }
 
       function handleNoteResize(e, noteId, side) {
@@ -1884,7 +1883,7 @@
         if (e.target.closest('.note-resize-handle') || e.target.closest('.note-input')) return;
         e.stopPropagation();
         e.preventDefault();
-        setSelectedNoteId(noteId);
+        if (!selectedNoteIds.includes(noteId)) setSelectedNoteIds([noteId]);
         pushUndo();
         const startX = e.clientX;
         const note = notes.find(n => n.id === noteId);
@@ -1916,7 +1915,6 @@
       }
 
       function duplicateBlock(blockId) {
-        pushUndo();
         const block = blocks.find(b => b.id === blockId);
         if (!block) return;
         const newId = 'b' + Date.now();
@@ -1927,13 +1925,12 @@
           startTime: clamped.startTime,
         };
         setBlocks(prev => [...prev, newBlock]);
-        setSelectedBlockId(newBlock.id);
+        setSelectedBlockIds([newBlock.id]);
         return newBlock.id;
       }
 
       // ── Duplicate note ──
       function duplicateNote(noteId) {
-        pushUndo();
         const note = notes.find(n => n.id === noteId);
         if (!note) return;
         const newId = 'note-' + Date.now();
@@ -1943,13 +1940,12 @@
           startTime: note.startTime + note.duration,
         };
         setNotes(prev => [...prev, newNote]);
-        setSelectedNoteId(newId);
+        setSelectedNoteIds([newId]);
         return newId;
       }
 
       // ── Duplicate section ──
       function duplicateSection(idx) {
-        pushUndo();
         const sec = sectionMarkers[idx];
         if (!sec) return;
         const newStart = sec.startTime + sec.duration;
@@ -1965,7 +1961,7 @@
         ]);
         const newEnd = newStart + sec.duration + 10;
         if (newEnd > totalDuration) setTotalDuration(newEnd);
-        setSelectedSectionIdx(newIdx);
+        setSelectedSectionIdxs([newIdx]);
       }
 
       // Keyboard: Delete/Backspace, Cmd+D duplicate, Cmd+Z undo, Shift+Cmd+Z redo
@@ -1990,12 +1986,24 @@
           // Cmd+D duplicate — works everywhere (even in note input)
           if (key === 'd' && mod) {
             e.preventDefault();
-            if (selectedBlockId) {
-              duplicateBlock(selectedBlockId);
-            } else if (selectedNoteId) {
-              duplicateNote(selectedNoteId);
-            } else if (selectedSectionIdx !== null) {
-              duplicateSection(selectedSectionIdx);
+            if (selectedBlockIds.length > 0) {
+              pushUndo();
+              const newIds = [];
+              selectedBlockIds.forEach(bid => {
+                const nid = duplicateBlock(bid);
+                if (nid) newIds.push(nid);
+              });
+              setSelectedBlockIds(newIds);
+            } else if (selectedNoteIds.length > 0) {
+              pushUndo();
+              const newIds = [];
+              selectedNoteIds.forEach(nid => {
+                const newId = duplicateNote(nid);
+                if (newId) newIds.push(newId);
+              });
+              setSelectedNoteIds(newIds);
+            } else if (selectedSectionIdxs.length > 0) {
+              selectedSectionIdxs.forEach(idx => duplicateSection(idx));
             }
             return;
           }
@@ -2005,9 +2013,9 @@
             if (editingNoteId) {
               setEditingNoteId(null);
             } else {
-              setSelectedBlockId(null);
-              setSelectedNoteId(null);
-              setSelectedSectionIdx(null);
+              setSelectedBlockIds([]);
+              setSelectedNoteIds([]);
+              setSelectedSectionIdxs([]);
               setEditingSectionIdx(null);
             }
             return;
@@ -2021,32 +2029,38 @@
             togglePlay();
             return;
           }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId) {
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockIds.length > 0) {
             e.preventDefault();
             pushUndo();
-            setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
-            setSelectedBlockId(null);
+            setBlocks(prev => prev.filter(b => !selectedBlockIds.includes(b.id)));
+            setSelectedBlockIds([]);
           }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteId) {
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteIds.length > 0) {
             e.preventDefault();
-            deleteNote(selectedNoteId);
+            pushUndo();
+            setNotes(prev => prev.filter(n => !selectedNoteIds.includes(n.id)));
+            setSelectedNoteIds([]);
+            setEditingNoteId(null);
           }
-          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSectionIdx !== null) {
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSectionIdxs.length > 0) {
             e.preventDefault();
-            deleteSection(selectedSectionIdx);
-            setSelectedSectionIdx(null);
+            pushUndo();
+            // Delete from highest index to lowest to avoid index shift
+            const sorted = [...selectedSectionIdxs].sort((a, b) => b - a);
+            sorted.forEach(idx => deleteSection(idx));
+            setSelectedSectionIdxs([]);
           }
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockId, selectedNoteId, selectedSectionIdx, editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
+      }, [selectedBlockIds, selectedNoteIds, selectedSectionIdxs, editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
 
       // Deselect block when clicking on empty area
       function handleTimelineClick(e) {
         if (e.target.closest('.block') || e.target.closest('.section-marker') || e.target.closest('.note-marker')) return;
-        setSelectedBlockId(null);
-        setSelectedNoteId(null);
-        setSelectedSectionIdx(null);
+        setSelectedBlockIds([]);
+        setSelectedNoteIds([]);
+        setSelectedSectionIdxs([]);
       }
 
       // Load template
@@ -2318,7 +2332,6 @@
 
       // ── Add section at the end ──
       function deleteSection(idx) {
-        pushUndo();
         const sec = sectionMarkers[idx];
         if (!sec) return;
         // Remove associated energy points
@@ -2374,7 +2387,7 @@
         e.preventDefault();
         if (mode === 'rename') return;
         pushUndo();
-        setSelectedSectionIdx(idx);
+        if (!selectedSectionIdxs.includes(idx)) setSelectedSectionIdxs([idx]);
         const sec = sectionMarkers[idx];
         const startX = e.clientX;
         const origStart = sec.startTime;
@@ -2935,13 +2948,22 @@
                 {sectionMarkers.map((sec, i) => (
                   <div
                     key={i}
-                    className={`section-marker ${selectedSectionIdx === i ? 'selected' : ''}`}
+                    className={`section-marker ${selectedSectionIdxs.includes(i) ? 'selected' : ''}`}
                     style={{
                       left: sec.startTime * pxPerSecond,
                       width: Math.max(30, sec.duration * pxPerSecond - 2),
                     }}
                     onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
-                    onClick={e => { e.stopPropagation(); setSelectedSectionIdx(i); setSelectedBlockId(null); setSelectedNoteId(null); }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                        setSelectedSectionIdxs(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
+                      } else {
+                        setSelectedSectionIdxs([i]);
+                      }
+                      setSelectedBlockIds([]);
+                      setSelectedNoteIds([]);
+                    }}
                     onDoubleClick={() => handleSectionDoubleClick(i)}
                   >
                     <div className="section-resize-handle left" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-left')}></div>
@@ -2962,7 +2984,7 @@
                     <div className="section-resize-handle right" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-right')}></div>
                     <button
                       className="section-delete-btn"
-                      onClick={e => { e.stopPropagation(); deleteSection(i); }}
+                      onClick={e => { e.stopPropagation(); pushUndo(); deleteSection(i); }}
                       onMouseDown={e => e.stopPropagation()}
                       title="Supprimer cette section"
                     >&times;</button>
@@ -3054,14 +3076,24 @@
                           {trackBlocks.map(block => (
                             <div
                               key={block.id}
-                              className={`block ${selectedBlockId === block.id ? 'selected' : ''}`}
+                              className={`block ${selectedBlockIds.includes(block.id) ? 'selected' : ''}`}
                               style={{
                                 left: block.startTime * pxPerSecond,
                                 width: block.duration * pxPerSecond,
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
-                              onClick={e => { e.stopPropagation(); if (e.altKey) { duplicateBlock(block.id); } else { setSelectedBlockId(block.id); setSelectedNoteId(null); setSelectedSectionIdx(null); } }}
+                              onClick={e => {
+                                e.stopPropagation();
+                                if (e.altKey) { pushUndo(); duplicateBlock(block.id); return; }
+                                if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                                  setSelectedBlockIds(prev => prev.includes(block.id) ? prev.filter(x => x !== block.id) : [...prev, block.id]);
+                                } else {
+                                  setSelectedBlockIds([block.id]);
+                                }
+                                setSelectedNoteIds([]);
+                                setSelectedSectionIdxs([]);
+                              }}
                               onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
                             >
                               <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
@@ -3128,14 +3160,18 @@
                     {notes.map(note => (
                       <div
                         key={note.id}
-                        className={`note-marker ${selectedNoteId === note.id ? 'selected' : ''}`}
+                        className={`note-marker ${selectedNoteIds.includes(note.id) ? 'selected' : ''}`}
                         style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
                         onMouseDown={e => handleNoteMove(e, note.id)}
                         onClick={e => {
                           e.stopPropagation();
-                          setSelectedNoteId(note.id);
-                          setSelectedBlockId(null);
-                          setSelectedSectionIdx(null);
+                          if (e.shiftKey || e.metaKey || e.ctrlKey) {
+                            setSelectedNoteIds(prev => prev.includes(note.id) ? prev.filter(x => x !== note.id) : [...prev, note.id]);
+                          } else {
+                            setSelectedNoteIds([note.id]);
+                          }
+                          setSelectedBlockIds([]);
+                          setSelectedSectionIdxs([]);
                         }}
                         onDoubleClick={e => {
                           e.stopPropagation();
@@ -3178,9 +3214,9 @@
           <div className="footer-bar">
             <div className="footer-info">
               {tracks.length} pistes | {blocks.length} blocs | {secondsToTimeStr(totalDuration)} | {bpm} BPM | {Math.round(secondsToMeasures(totalDuration, bpm))} mesures
-              {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
-              {selectedNoteId && <span className="selection-hint"> — Note sélectionnée · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
-              {selectedSectionIdx !== null && <span className="selection-hint"> — Section sélectionnée · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
+              {selectedBlockIds.length > 0 && <span className="selection-hint"> — {selectedBlockIds.length} bloc{selectedBlockIds.length > 1 ? 's' : ''} · Suppr/⌘D · Shift+clic multi-sélection</span>}
+              {selectedNoteIds.length > 0 && <span className="selection-hint"> — {selectedNoteIds.length} note{selectedNoteIds.length > 1 ? 's' : ''} · Suppr/⌘D · Shift+clic multi-sélection</span>}
+              {selectedSectionIdxs.length > 0 && <span className="selection-hint"> — {selectedSectionIdxs.length} section{selectedSectionIdxs.length > 1 ? 's' : ''} · Suppr/⌘D · Shift+clic multi-sélection</span>}
             </div>
             <div className="footer-actions">
               <button className="btn btn-primary" onClick={exportMIDI} title="MIDI complet (sections + éléments)">
