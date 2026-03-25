@@ -316,6 +316,11 @@
       border-color: #00D9CE;
       box-shadow: 0 0 8px rgba(0, 217, 206, 0.3);
     }
+    .section-marker.selected {
+      border-color: #fff;
+      box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+      background: rgba(0, 217, 206, 0.25);
+    }
     .section-resize-handle {
       position: absolute;
       top: 0;
@@ -652,6 +657,7 @@
       min-height: 36px;
       display: flex;
       align-items: center;
+      cursor: crosshair;
     }
     .note-marker {
       position: absolute;
@@ -672,6 +678,11 @@
     .note-marker:hover {
       background: rgba(255, 255, 255, 0.1);
       border-color: rgba(255, 255, 255, 0.25);
+    }
+    .note-marker.selected {
+      border-color: #00D9CE;
+      background: rgba(0, 217, 206, 0.12);
+      box-shadow: 0 0 6px rgba(0, 217, 206, 0.3);
     }
     .note-input {
       background: #333;
@@ -1303,6 +1314,54 @@
       const [presetName, setPresetName] = useState('');
       const [renamingElIdx, setRenamingElIdx] = useState(null);
       const [renameElValue, setRenameElValue] = useState('');
+      const [selectedNoteId, setSelectedNoteId] = useState(null);
+      const [selectedSectionIdx, setSelectedSectionIdx] = useState(null);
+
+      // ── Undo / Redo system ──
+      const undoStackRef = useRef([]);
+      const redoStackRef = useRef([]);
+      const isUndoRedoRef = useRef(false);
+
+      function captureSnapshot() {
+        return {
+          blocks: JSON.parse(JSON.stringify(blocks)),
+          notes: JSON.parse(JSON.stringify(notes)),
+          sectionMarkers: JSON.parse(JSON.stringify(sectionMarkers)),
+          energyPoints: JSON.parse(JSON.stringify(energyPoints)),
+          tracks: [...tracks],
+        };
+      }
+
+      function pushUndo() {
+        if (isUndoRedoRef.current) return;
+        undoStackRef.current.push(captureSnapshot());
+        if (undoStackRef.current.length > 100) undoStackRef.current.shift();
+        redoStackRef.current = [];
+      }
+
+      function applySnapshot(snap) {
+        isUndoRedoRef.current = true;
+        setBlocks(snap.blocks);
+        setNotes(snap.notes);
+        setSectionMarkers(snap.sectionMarkers);
+        setEnergyPoints(snap.energyPoints);
+        setTracks(snap.tracks);
+        setTimeout(() => { isUndoRedoRef.current = false; }, 0);
+      }
+
+      function undo() {
+        if (undoStackRef.current.length === 0) return;
+        redoStackRef.current.push(captureSnapshot());
+        const snap = undoStackRef.current.pop();
+        applySnapshot(snap);
+      }
+
+      function redo() {
+        if (redoStackRef.current.length === 0) return;
+        undoStackRef.current.push(captureSnapshot());
+        const snap = redoStackRef.current.pop();
+        applySnapshot(snap);
+      }
 
       // ── Audio import & waveform ──
       function detectBPM(buffer) {
@@ -1757,10 +1816,16 @@
       }, [waveformData, totalWidth, pxPerSecond, audioOffset, playheadTime]);
 
       // ── Notes ──
-      function addNote() {
-        const lastNote = notes[notes.length - 1];
-        const startTime = lastNote ? lastNote.startTime + lastNote.duration : 0;
+      function addNote(atTime) {
+        pushUndo();
         const dur = measuresToSeconds(8, bpm);
+        let startTime;
+        if (atTime !== undefined) {
+          startTime = snapEnabled ? snapToGrid(atTime) : atTime;
+        } else {
+          const lastNote = notes[notes.length - 1];
+          startTime = lastNote ? lastNote.startTime + lastNote.duration : 0;
+        }
         const newId = 'note-' + Date.now();
         setNotes(prev => [...prev, {
           id: newId,
@@ -1769,6 +1834,7 @@
           text: '',
         }]);
         setEditingNoteId(newId);
+        setSelectedNoteId(newId);
       }
 
       function updateNoteText(id, text) {
@@ -1776,13 +1842,16 @@
       }
 
       function deleteNote(id) {
+        pushUndo();
         setNotes(prev => prev.filter(n => n.id !== id));
         setEditingNoteId(null);
+        setSelectedNoteId(null);
       }
 
       function handleNoteResize(e, noteId, side) {
         e.stopPropagation();
         e.preventDefault();
+        pushUndo();
         const startX = e.clientX;
         const note = notes.find(n => n.id === noteId);
         if (!note) return;
@@ -1815,6 +1884,8 @@
         if (e.target.closest('.note-resize-handle') || e.target.closest('.note-input')) return;
         e.stopPropagation();
         e.preventDefault();
+        setSelectedNoteId(noteId);
+        pushUndo();
         const startX = e.clientX;
         const note = notes.find(n => n.id === noteId);
         if (!note) return;
@@ -1845,6 +1916,7 @@
       }
 
       function duplicateBlock(blockId) {
+        pushUndo();
         const block = blocks.find(b => b.id === blockId);
         if (!block) return;
         const newId = 'b' + Date.now();
@@ -1859,9 +1931,57 @@
         return newBlock.id;
       }
 
-      // Keyboard: Delete/Backspace to remove, Cmd+D to duplicate
+      // ── Duplicate note ──
+      function duplicateNote(noteId) {
+        pushUndo();
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        const newId = 'note-' + Date.now();
+        const newNote = {
+          ...note,
+          id: newId,
+          startTime: note.startTime + note.duration,
+        };
+        setNotes(prev => [...prev, newNote]);
+        setSelectedNoteId(newId);
+        return newId;
+      }
+
+      // ── Duplicate section ──
+      function duplicateSection(idx) {
+        pushUndo();
+        const sec = sectionMarkers[idx];
+        if (!sec) return;
+        const newStart = sec.startTime + sec.duration;
+        const newIdx = sectionMarkers.length;
+        setSectionMarkers(prev => [...prev, {
+          name: sec.name + ' (copie)',
+          startTime: newStart,
+          duration: sec.duration,
+        }]);
+        setEnergyPoints(prev => [...prev,
+          { id: 'ep-start-' + newIdx, time: newStart, value: 5 },
+          { id: 'ep-end-' + newIdx, time: newStart + sec.duration, value: 3 },
+        ]);
+        const newEnd = newStart + sec.duration + 10;
+        if (newEnd > totalDuration) setTotalDuration(newEnd);
+        setSelectedSectionIdx(newIdx);
+      }
+
+      // Keyboard: Delete/Backspace, Cmd+D duplicate, Cmd+Z undo, Shift+Cmd+Z redo
       useEffect(() => {
         function handleKeyDown(e) {
+          // Undo/redo works even in inputs
+          if (e.key === 'z' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
+            e.preventDefault();
+            undo();
+            return;
+          }
+          if (e.key === 'z' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
+            e.preventDefault();
+            redo();
+            return;
+          }
           if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
           if (e.key === ' ') {
             e.preventDefault();
@@ -1870,26 +1990,46 @@
           }
           if ((e.key === 'Delete' || e.key === 'Backspace') && selectedBlockId) {
             e.preventDefault();
+            pushUndo();
             setBlocks(prev => prev.filter(b => b.id !== selectedBlockId));
             setSelectedBlockId(null);
           }
-          if (e.key === 'd' && (e.metaKey || e.ctrlKey) && selectedBlockId) {
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedNoteId) {
             e.preventDefault();
-            duplicateBlock(selectedBlockId);
+            deleteNote(selectedNoteId);
+          }
+          if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSectionIdx !== null) {
+            e.preventDefault();
+            deleteSection(selectedSectionIdx);
+            setSelectedSectionIdx(null);
+          }
+          if (e.key === 'd' && (e.metaKey || e.ctrlKey)) {
+            e.preventDefault();
+            if (selectedBlockId) {
+              duplicateBlock(selectedBlockId);
+            } else if (selectedNoteId) {
+              duplicateNote(selectedNoteId);
+            } else if (selectedSectionIdx !== null) {
+              duplicateSection(selectedSectionIdx);
+            }
           }
           if (e.key === 'Escape') {
             setSelectedBlockId(null);
+            setSelectedNoteId(null);
+            setSelectedSectionIdx(null);
             setEditingSectionIdx(null);
           }
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [selectedBlockId, blocks, isPlaying, audioBuffer]);
+      }, [selectedBlockId, selectedNoteId, selectedSectionIdx, blocks, notes, sectionMarkers, energyPoints, tracks, isPlaying, audioBuffer]);
 
       // Deselect block when clicking on empty area
       function handleTimelineClick(e) {
-        if (e.target.closest('.block') || e.target.closest('.section-marker')) return;
+        if (e.target.closest('.block') || e.target.closest('.section-marker') || e.target.closest('.note-marker')) return;
         setSelectedBlockId(null);
+        setSelectedNoteId(null);
+        setSelectedSectionIdx(null);
       }
 
       // Load template
@@ -2070,6 +2210,7 @@
         e.preventDefault();
         setDropTarget(false);
         try {
+          pushUndo();
           const element = JSON.parse(e.dataTransfer.getData('element'));
           if (!element) return;
           const rect = timelineRef.current.getBoundingClientRect();
@@ -2098,6 +2239,7 @@
       function handleBlockMouseDown(e, blockId, mode) {
         e.stopPropagation();
         e.preventDefault();
+        pushUndo();
         const block = blocks.find(b => b.id === blockId);
         if (!block) return;
         const startX = e.clientX;
@@ -2139,6 +2281,7 @@
       }
 
       function removeTrack(trackName) {
+        pushUndo();
         setTracks(prev => prev.filter(t => t !== trackName));
         setBlocks(prev => prev.filter(b => b.track !== trackName));
       }
@@ -2158,6 +2301,7 @@
 
       // ── Add section at the end ──
       function deleteSection(idx) {
+        pushUndo();
         const sec = sectionMarkers[idx];
         if (!sec) return;
         // Remove associated energy points
@@ -2182,6 +2326,7 @@
       }
 
       function addSection() {
+        pushUndo();
         const lastSec = sectionMarkers[sectionMarkers.length - 1];
         const newStart = lastSec ? lastSec.startTime + lastSec.duration : 0;
         const newDur = measuresToSeconds(8, bpm);
@@ -2211,6 +2356,8 @@
         e.stopPropagation();
         e.preventDefault();
         if (mode === 'rename') return;
+        pushUndo();
+        setSelectedSectionIdx(idx);
         const sec = sectionMarkers[idx];
         const startX = e.clientX;
         const origStart = sec.startTime;
@@ -2771,12 +2918,13 @@
                 {sectionMarkers.map((sec, i) => (
                   <div
                     key={i}
-                    className="section-marker"
+                    className={`section-marker ${selectedSectionIdx === i ? 'selected' : ''}`}
                     style={{
                       left: sec.startTime * pxPerSecond,
                       width: Math.max(30, sec.duration * pxPerSecond - 2),
                     }}
                     onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
+                    onClick={e => { e.stopPropagation(); setSelectedSectionIdx(i); setSelectedBlockId(null); setSelectedNoteId(null); }}
                     onDoubleClick={() => handleSectionDoubleClick(i)}
                   >
                     <div className="section-resize-handle left" onMouseDown={e => handleSectionMouseDown(e, i, 'resize-left')}></div>
@@ -2896,7 +3044,7 @@
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
-                              onClick={e => { e.stopPropagation(); if (e.altKey) { duplicateBlock(block.id); } else { setSelectedBlockId(block.id); } }}
+                              onClick={e => { e.stopPropagation(); if (e.altKey) { duplicateBlock(block.id); } else { setSelectedBlockId(block.id); setSelectedNoteId(null); setSelectedSectionIdx(null); } }}
                               onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
                             >
                               <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
@@ -2948,18 +3096,32 @@
                   <div className="notes-label">
                     {'\uD83D\uDCDD'} Notes
                     <button
-                      onClick={addNote}
+                      onClick={() => addNote()}
                       style={{ background: 'none', border: '1px dashed #555', color: '#888', borderRadius: 4, cursor: 'pointer', fontSize: 11, padding: '1px 6px' }}
                       title="Ajouter une note"
                     >+</button>
                   </div>
-                  <div className="notes-lane" style={{ width: totalWidth }}>
+                  <div className="notes-lane" style={{ width: totalWidth }} onClick={e => {
+                    if (e.target.closest('.note-marker')) return;
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const x = e.clientX - rect.left + (timelineRef.current ? timelineRef.current.scrollLeft : 0);
+                    const clickTime = Math.max(0, x / pxPerSecond);
+                    addNote(clickTime);
+                  }}>
                     {notes.map(note => (
                       <div
                         key={note.id}
-                        className="note-marker"
+                        className={`note-marker ${selectedNoteId === note.id ? 'selected' : ''}`}
                         style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
                         onMouseDown={e => handleNoteMove(e, note.id)}
+                        onClick={e => {
+                          e.stopPropagation();
+                          setSelectedNoteId(note.id);
+                          setEditingNoteId(note.id);
+                          setSelectedBlockId(null);
+                          setSelectedSectionIdx(null);
+                        }}
+                        onDoubleClick={e => { e.stopPropagation(); deleteNote(note.id); }}
                       >
                         <div className="note-resize-handle left" onMouseDown={e => handleNoteResize(e, note.id, 'left')}></div>
                         {editingNoteId === note.id ? (
@@ -2974,14 +3136,12 @@
                               if (e.key === 'Delete' && !note.text) { e.preventDefault(); deleteNote(note.id); }
                             }}
                             onBlur={() => setEditingNoteId(null)}
+                            onClick={e => e.stopPropagation()}
                             placeholder="Écrire une note..."
                           />
                         ) : (
                           <span
-                            style={{ cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            onClick={() => setEditingNoteId(note.id)}
-                            onDoubleClick={() => deleteNote(note.id)}
-                            title="Clic pour éditer · Double-clic pour supprimer"
+                            style={{ cursor: 'text', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', pointerEvents: 'none' }}
                           >
                             {note.text || '...'}
                           </span>
@@ -2999,7 +3159,9 @@
           <div className="footer-bar">
             <div className="footer-info">
               {tracks.length} pistes | {blocks.length} blocs | {secondsToTimeStr(totalDuration)} | {bpm} BPM | {Math.round(secondsToMeasures(totalDuration, bpm))} mesures
-              {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer</span>}
+              {selectedBlockId && <span className="selection-hint"> — Bloc sélectionné · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
+              {selectedNoteId && <span className="selection-hint"> — Note sélectionnée · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
+              {selectedSectionIdx !== null && <span className="selection-hint"> — Section sélectionnée · Suppr pour effacer · {'\u2318'}D pour dupliquer</span>}
             </div>
             <div className="footer-actions">
               <button className="btn btn-primary" onClick={exportMIDI} title="MIDI complet (sections + éléments)">
