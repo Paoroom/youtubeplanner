@@ -1881,10 +1881,6 @@
       }
 
       function handleNoteMove(e, noteId) {
-        if (e.target.closest('.note-resize-handle') || e.target.closest('.note-input')) return;
-        e.stopPropagation();
-        e.preventDefault();
-        if (!selectedNoteIds.includes(noteId)) setSelectedNoteIds([noteId]);
         pushUndo();
         const startX = e.clientX;
         const note = notes.find(n => n.id === noteId);
@@ -1986,23 +1982,24 @@
           const s = kbStateRef.current;
           const a = kbActionsRef.current;
           const key = e.key.toLowerCase();
+          const code = e.code; // Layout-independent key code
           const mod = e.metaKey || e.ctrlKey;
           const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
 
           // Undo/redo — works everywhere
-          if (key === 'z' && mod && !e.shiftKey) {
+          if ((key === 'z' || code === 'KeyZ') && mod && !e.shiftKey) {
             e.preventDefault();
             a.undo();
             return;
           }
-          if (key === 'z' && mod && e.shiftKey) {
+          if ((key === 'z' || code === 'KeyZ') && mod && e.shiftKey) {
             e.preventDefault();
             a.redo();
             return;
           }
 
           // Cmd+D duplicate — works everywhere
-          if (key === 'd' && mod) {
+          if ((key === 'd' || code === 'KeyD') && mod) {
             e.preventDefault();
             if (s.selectedBlockIds.length > 0) {
               a.pushUndo();
@@ -2411,7 +2408,6 @@
 
       // ── Block drag (move) ──
       function handleBlockMouseDown(e, blockId, mode) {
-        e.stopPropagation();
         e.preventDefault();
         pushUndo();
         const block = blocks.find(b => b.id === blockId);
@@ -2526,11 +2522,9 @@
 
       // ── Section marker drag (move) & resize — energy points follow ──
       function handleSectionMouseDown(e, idx, mode) {
-        e.stopPropagation();
         e.preventDefault();
         if (mode === 'rename') return;
         pushUndo();
-        if (!selectedSectionIdxs.includes(idx)) setSelectedSectionIdxs([idx]);
         const sec = sectionMarkers[idx];
         const startX = e.clientX;
         const origStart = sec.startTime;
@@ -3112,16 +3106,18 @@
                       left: sec.startTime * pxPerSecond,
                       width: Math.max(30, sec.duration * pxPerSecond - 2),
                     }}
-                    onMouseDown={e => handleSectionMouseDown(e, i, 'move')}
-                    onClick={e => {
+                    onMouseDown={e => {
+                      if (e.target.closest('.section-resize-handle') || e.target.closest('input')) return;
                       e.stopPropagation();
+                      // Select on mousedown
                       if (e.shiftKey || e.metaKey || e.ctrlKey) {
                         setSelectedSectionIdxs(prev => prev.includes(i) ? prev.filter(x => x !== i) : [...prev, i]);
-                      } else {
+                      } else if (!selectedSectionIdxs.includes(i)) {
                         setSelectedSectionIdxs([i]);
                       }
                       setSelectedBlockIds([]);
                       setSelectedNoteIds([]);
+                      handleSectionMouseDown(e, i, 'move');
                     }}
                     onDoubleClick={() => handleSectionDoubleClick(i)}
                   >
@@ -3243,18 +3239,19 @@
                                 background: `linear-gradient(135deg, ${block.color}cc, ${block.color}88)`,
                                 border: `1px solid ${block.color}`,
                               }}
-                              onClick={e => {
+                              onMouseDown={e => {
                                 e.stopPropagation();
                                 if (e.altKey) { pushUndo(); duplicateBlock(block.id); return; }
+                                // Select on mousedown (not click) so it always works
                                 if (e.shiftKey || e.metaKey || e.ctrlKey) {
                                   setSelectedBlockIds(prev => prev.includes(block.id) ? prev.filter(x => x !== block.id) : [...prev, block.id]);
-                                } else {
+                                } else if (!selectedBlockIds.includes(block.id)) {
                                   setSelectedBlockIds([block.id]);
                                 }
                                 setSelectedNoteIds([]);
                                 setSelectedSectionIdxs([]);
+                                handleBlockMouseDown(e, block.id, 'move');
                               }}
-                              onMouseDown={e => handleBlockMouseDown(e, block.id, 'move')}
                             >
                               <div className="resize-handle left" onMouseDown={e => handleBlockMouseDown(e, block.id, 'resize-left')}></div>
                               <span className="block-label">{block.element}</span>
@@ -3323,16 +3320,18 @@
                         className={`note-marker ${selectedNoteIds.includes(note.id) ? 'selected' : ''}`}
                         data-note-id={note.id}
                         style={{ left: note.startTime * pxPerSecond, width: note.duration * pxPerSecond, cursor: 'grab' }}
-                        onMouseDown={e => handleNoteMove(e, note.id)}
-                        onClick={e => {
+                        onMouseDown={e => {
+                          if (e.target.closest('.note-resize-handle') || e.target.closest('input')) return;
                           e.stopPropagation();
+                          // Select on mousedown
                           if (e.shiftKey || e.metaKey || e.ctrlKey) {
                             setSelectedNoteIds(prev => prev.includes(note.id) ? prev.filter(x => x !== note.id) : [...prev, note.id]);
-                          } else {
+                          } else if (!selectedNoteIds.includes(note.id)) {
                             setSelectedNoteIds([note.id]);
                           }
                           setSelectedBlockIds([]);
                           setSelectedSectionIdxs([]);
+                          handleNoteMove(e, note.id);
                         }}
                         onDoubleClick={e => {
                           e.stopPropagation();
