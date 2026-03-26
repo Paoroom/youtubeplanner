@@ -1991,10 +1991,18 @@
         setSelectedSectionIdxs, setEditingNoteId, setEditingSectionIdx,
       };
 
+      // Debug toast for shortcuts
+      const [shortcutToast, setShortcutToast] = useState('');
+      const toastTimerRef = useRef(null);
+      function showToast(msg) {
+        setShortcutToast(msg);
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = setTimeout(() => setShortcutToast(''), 2000);
+      }
+
       useEffect(() => {
         function handleKeyDown(e) {
           const a = actionsRef.current;
-          // Read selection from refs (always up to date, even before React re-render)
           const selBlocks = selectedBlockIdsRef.current;
           const selNotes = selectedNoteIdsRef.current;
           const selSections = selectedSectionIdxsRef.current;
@@ -2008,17 +2016,20 @@
           if ((key === 'z' || code === 'KeyZ') && mod && !e.shiftKey) {
             e.preventDefault();
             a.undo();
+            showToast('Undo');
             return;
           }
           if ((key === 'z' || code === 'KeyZ') && mod && e.shiftKey) {
             e.preventDefault();
             a.redo();
+            showToast('Redo');
             return;
           }
 
-          // Cmd+D duplicate — works everywhere
+          // Cmd+D / Ctrl+D duplicate — works everywhere
           if ((key === 'd' || code === 'KeyD') && mod) {
             e.preventDefault();
+            e.stopPropagation();
             if (selBlocks.length > 0) {
               a.pushUndo();
               const newIds = [];
@@ -2027,6 +2038,7 @@
                 if (nid) newIds.push(nid);
               });
               a.setSelectedBlockIds(newIds);
+              showToast('Bloc dupliqué (' + newIds.length + ')');
             } else if (selNotes.length > 0) {
               a.pushUndo();
               const newIds = [];
@@ -2035,9 +2047,13 @@
                 if (newId) newIds.push(newId);
               });
               a.setSelectedNoteIds(newIds);
+              showToast('Note dupliquée (' + newIds.length + ')');
             } else if (selSections.length > 0) {
               a.pushUndo();
               selSections.forEach(idx => a.duplicateSection(idx));
+              showToast('Section dupliquée');
+            } else {
+              showToast('Rien sélectionné — cliquez un bloc d\'abord');
             }
             return;
           }
@@ -2052,6 +2068,7 @@
               a.setSelectedSectionIdxs([]);
               a.setEditingSectionIdx(null);
             }
+            showToast('Désélectionné');
             return;
           }
 
@@ -2070,6 +2087,7 @@
               const ids = [...selBlocks];
               a.setBlocks(prev => prev.filter(b => !ids.includes(b.id)));
               a.setSelectedBlockIds([]);
+              showToast('Bloc(s) supprimé(s)');
             }
             if (selNotes.length > 0) {
               e.preventDefault();
@@ -2078,6 +2096,7 @@
               a.setNotes(prev => prev.filter(n => !ids.includes(n.id)));
               a.setSelectedNoteIds([]);
               a.setEditingNoteId(null);
+              showToast('Note(s) supprimée(s)');
             }
             if (selSections.length > 0) {
               e.preventDefault();
@@ -2085,12 +2104,13 @@
               const sorted = [...selSections].sort((a, b) => b - a);
               sorted.forEach(idx => a.deleteSection(idx));
               a.setSelectedSectionIdxs([]);
+              showToast('Section(s) supprimée(s)');
             }
           }
         }
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-      }, []); // Empty deps — selection read from refs, actions from actionsRef
+        window.addEventListener('keydown', handleKeyDown, true); // capture phase!
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+      }, []);
 
       // ── Rectangle drag selection ──
       function handleTimelineMouseDown(e) {
@@ -3389,6 +3409,16 @@
               </div>
             </div>
           </div>
+
+          {/* Shortcut toast */}
+          {shortcutToast && (
+            <div style={{
+              position: 'fixed', bottom: 50, left: '50%', transform: 'translateX(-50%)',
+              background: '#00D9CE', color: '#000', padding: '6px 18px', borderRadius: 8,
+              fontWeight: 700, fontSize: 13, zIndex: 9999, pointerEvents: 'none',
+              boxShadow: '0 2px 12px rgba(0,217,206,0.4)',
+            }}>{shortcutToast}</div>
+          )}
 
           {/* Footer */}
           <div className="footer-bar">
