@@ -1283,7 +1283,7 @@
       const timelineRef = useRef(null);
       const energyCanvasRef = useRef(null);
       const [dropTarget, setDropTarget] = useState(false);
-      const [selectedBlockIds, setSelectedBlockIds] = useState([]);
+      const [selectedBlockIds, _setSelectedBlockIds] = useState([]);
       const [editingSectionIdx, setEditingSectionIdx] = useState(null);
       const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND);
       const [elements, setElements] = useState(ELEMENTS);
@@ -1314,9 +1314,30 @@
       const [presetName, setPresetName] = useState('');
       const [renamingElIdx, setRenamingElIdx] = useState(null);
       const [renameElValue, setRenameElValue] = useState('');
-      const [selectedNoteIds, setSelectedNoteIds] = useState([]);
-      const [selectedSectionIdxs, setSelectedSectionIdxs] = useState([]);
+      const [selectedNoteIds, _setSelectedNoteIds] = useState([]);
+      const [selectedSectionIdxs, _setSelectedSectionIdxs] = useState([]);
       const [selectionRect, setSelectionRect] = useState(null); // {x, y, w, h} for drag rectangle
+
+      // ── Refs that stay in sync for keyboard handler ──
+      const selectedBlockIdsRef = useRef([]);
+      const selectedNoteIdsRef = useRef([]);
+      const selectedSectionIdxsRef = useRef([]);
+
+      function setSelectedBlockIds(val) {
+        const v = typeof val === 'function' ? val(selectedBlockIdsRef.current) : val;
+        selectedBlockIdsRef.current = v;
+        _setSelectedBlockIds(v);
+      }
+      function setSelectedNoteIds(val) {
+        const v = typeof val === 'function' ? val(selectedNoteIdsRef.current) : val;
+        selectedNoteIdsRef.current = v;
+        _setSelectedNoteIds(v);
+      }
+      function setSelectedSectionIdxs(val) {
+        const v = typeof val === 'function' ? val(selectedSectionIdxsRef.current) : val;
+        selectedSectionIdxsRef.current = v;
+        _setSelectedSectionIdxs(v);
+      }
 
       // ── Undo / Redo system ──
       const undoStackRef = useRef([]);
@@ -1962,27 +1983,24 @@
       }
 
       // ── Ref-based keyboard handler (avoids stale closures) ──
-      const kbStateRef = useRef({});
-      kbStateRef.current = {
-        selectedBlockIds, selectedNoteIds, selectedSectionIdxs,
-        editingNoteId, blocks, notes, sectionMarkers, energyPoints, tracks,
-        isPlaying, audioBuffer, pxPerSecond,
-      };
-
-      const kbActionsRef = useRef({});
-      kbActionsRef.current = {
+      const actionsRef = useRef({});
+      actionsRef.current = {
         undo, redo, pushUndo, duplicateBlock, duplicateNote, duplicateSection,
-        deleteSection, togglePlay, captureSnapshot,
+        deleteSection, togglePlay, editingNoteId,
         setBlocks, setNotes, setSelectedBlockIds, setSelectedNoteIds,
         setSelectedSectionIdxs, setEditingNoteId, setEditingSectionIdx,
       };
 
       useEffect(() => {
         function handleKeyDown(e) {
-          const s = kbStateRef.current;
-          const a = kbActionsRef.current;
+          const a = actionsRef.current;
+          // Read selection from refs (always up to date, even before React re-render)
+          const selBlocks = selectedBlockIdsRef.current;
+          const selNotes = selectedNoteIdsRef.current;
+          const selSections = selectedSectionIdxsRef.current;
+
           const key = e.key.toLowerCase();
-          const code = e.code; // Layout-independent key code
+          const code = e.code;
           const mod = e.metaKey || e.ctrlKey;
           const inInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable;
 
@@ -2001,32 +2019,32 @@
           // Cmd+D duplicate — works everywhere
           if ((key === 'd' || code === 'KeyD') && mod) {
             e.preventDefault();
-            if (s.selectedBlockIds.length > 0) {
+            if (selBlocks.length > 0) {
               a.pushUndo();
               const newIds = [];
-              s.selectedBlockIds.forEach(bid => {
+              selBlocks.forEach(bid => {
                 const nid = a.duplicateBlock(bid);
                 if (nid) newIds.push(nid);
               });
               a.setSelectedBlockIds(newIds);
-            } else if (s.selectedNoteIds.length > 0) {
+            } else if (selNotes.length > 0) {
               a.pushUndo();
               const newIds = [];
-              s.selectedNoteIds.forEach(nid => {
+              selNotes.forEach(nid => {
                 const newId = a.duplicateNote(nid);
                 if (newId) newIds.push(newId);
               });
               a.setSelectedNoteIds(newIds);
-            } else if (s.selectedSectionIdxs.length > 0) {
+            } else if (selSections.length > 0) {
               a.pushUndo();
-              s.selectedSectionIdxs.forEach(idx => a.duplicateSection(idx));
+              selSections.forEach(idx => a.duplicateSection(idx));
             }
             return;
           }
 
           // Escape — exit editing / deselect
           if (e.key === 'Escape') {
-            if (s.editingNoteId) {
+            if (a.editingNoteId) {
               a.setEditingNoteId(null);
             } else {
               a.setSelectedBlockIds([]);
@@ -2046,23 +2064,25 @@
             return;
           }
           if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (s.selectedBlockIds.length > 0) {
+            if (selBlocks.length > 0) {
               e.preventDefault();
               a.pushUndo();
-              a.setBlocks(prev => prev.filter(b => !s.selectedBlockIds.includes(b.id)));
+              const ids = [...selBlocks];
+              a.setBlocks(prev => prev.filter(b => !ids.includes(b.id)));
               a.setSelectedBlockIds([]);
             }
-            if (s.selectedNoteIds.length > 0) {
+            if (selNotes.length > 0) {
               e.preventDefault();
               a.pushUndo();
-              a.setNotes(prev => prev.filter(n => !s.selectedNoteIds.includes(n.id)));
+              const ids = [...selNotes];
+              a.setNotes(prev => prev.filter(n => !ids.includes(n.id)));
               a.setSelectedNoteIds([]);
               a.setEditingNoteId(null);
             }
-            if (s.selectedSectionIdxs.length > 0) {
+            if (selSections.length > 0) {
               e.preventDefault();
               a.pushUndo();
-              const sorted = [...s.selectedSectionIdxs].sort((a, b) => b - a);
+              const sorted = [...selSections].sort((a, b) => b - a);
               sorted.forEach(idx => a.deleteSection(idx));
               a.setSelectedSectionIdxs([]);
             }
@@ -2070,7 +2090,7 @@
         }
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-      }, []); // Empty deps — uses refs for always-fresh values
+      }, []); // Empty deps — selection read from refs, actions from actionsRef
 
       // ── Rectangle drag selection ──
       function handleTimelineMouseDown(e) {
